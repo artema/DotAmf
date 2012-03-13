@@ -1,0 +1,11 @@
+_ReSharper*
+bin
+obj
+App_Data
+TestResults
+
+*.user
+*.suo
+*.ReSharper
+*.InstallLog
+*.log
