@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 
 namespace DotAmf.IO
@@ -18,6 +19,36 @@ namespace DotAmf.IO
             : base(stream, encoding)
         {
         }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Bytes order on this architecture is little-endian.
+        /// </summary>
+        /// <remarks>
+        /// AMF messages have a big endian (network) byte order.
+        /// </remarks>
+        private static readonly PrepareBytes PrepareBytes = ByteConverter.IsLittleEndian ?
+                                             (PrepareBytes) ByteConverter.ChangeEndianness :
+                                                            ByteConverter.KeepEndianness;
+        #endregion
+
+        #region Public methods
+        public override void Write(short value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
+
+        public override void Write(ushort value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
+
+        public override void Write(int value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
+
+        public override void Write(uint value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
+
+        public override void Write(decimal value) { throw new NotSupportedException(); }
+
+        public override void Write(double value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
+
+        public override void Write(long value) { throw new NotSupportedException(); }
+
+        public override void Write(ulong value) { throw new NotSupportedException(); }
         #endregion
     }
 }
