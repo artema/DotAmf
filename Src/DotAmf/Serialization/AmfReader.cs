@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using DotAmf.Data;
@@ -29,6 +30,11 @@ namespace DotAmf.Serialization
         /// Stream reader.
         /// </summary>
         private readonly AmfStreamReader _reader;
+
+        /// <summary>
+        /// Current AMF deserializer.
+        /// </summary>
+        private IAmfDeserializer _deserializer;
         #endregion
 
         #region Public methods
@@ -39,47 +45,51 @@ namespace DotAmf.Serialization
         /// Type declaration:
         /// <c>amf-packet = version header-count *(header-type) message-count *(message-type)</c>
         /// </remarks>
-        /// <exception cref="FormatException">Data has invalid format.</exception>
-        /// <exception cref="NotSupportedException">Unsupported AMF format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
         public AmfPacket Read()
         {
-            var version = ReadAmfVersion();
-            var packet = new AmfPacket(version);
-            var deserializer = CreateDeserializer(version);
-
             try
             {
+                var version = ReadAmfVersion();
+                var packet = new AmfPacket(version);
+
+                _deserializer = CreateDeserializer(version);
+                _deserializer.ContextSwitch += OnContextSwitch;
+
                 //Read headers count
-                var headerCount = deserializer.ReadHeaderCount();
+                var headerCount = ReadHeaderCount();
 
                 for (var i = 0; i < headerCount; i++)
                 {
-                    deserializer.ClearReferences();
+                    _deserializer.ClearReferences();
 
-                    var header = deserializer.ReadNextHeader();
+                    var header = _deserializer.ReadHeader();
                     packet.Headers.Add(header);
                 }
 
                 //Read messages count
-                var messageCount = deserializer.ReadMessageCount();
+                var messageCount = ReadMessageCount();
 
                 for (var i = 0; i < messageCount; i++)
                 {
-                    deserializer.ClearReferences();
+                    _deserializer.ClearReferences();
 
-                    var message = deserializer.ReadNextMessage();
+                    var message = _deserializer.ReadMessage();
                     packet.Messages.Add(message);
                 }
 
-                deserializer.ClearReferences();
+                return packet;
             }
             catch (Exception e)
             {
-                throw new SerializationException("Error during deserialization.", e);
+                throw new SerializationException("Error during deserialization. Check inner exception for details.", e);
             }
-
-            return packet;
+            finally
+            {
+                _deserializer.ClearReferences();
+                _deserializer.ContextSwitch -= OnContextSwitch;
+                _deserializer = null;
+            }
         }
         #endregion
 
@@ -93,39 +103,55 @@ namespace DotAmf.Serialization
         /// <exception cref="FormatException">Data has unknown format.</exception>
         private AmfVersion ReadAmfVersion()
         {
-            //First two bytes contain message version number
-            var versionMarker = _reader.ReadUInt16();
-
-            switch (versionMarker)
+            try
             {
-                case 0:
-                    return AmfVersion.Amf0;
-
-                case 3:
-                    return AmfVersion.Amf3;
-
-                default:
-                    throw new FormatException("Data has unknown format.");
+                //First two bytes contain message version number
+                return (AmfVersion) _reader.ReadUInt16();
             }
+            catch
+            {
+                throw new FormatException("Unable to read AMF version. Data has unknown format.");
+            }
+        }
+
+        private ushort ReadHeaderCount()
+        {
+            //Up to 65535 headers are possible
+            return _reader.ReadUInt16();
+        }
+
+        private ushort ReadMessageCount()
+        {
+            //Up to 65535 messages are possible
+            return _reader.ReadUInt16();
         }
 
         /// <summary>
         /// Create AMF deserializer.
         /// </summary>
         /// <param name="version">AMF version.</param>
-        private IAmfDeserializer CreateDeserializer(AmfVersion version)
+        /// <param name="references">Object references to use.</param>
+        private IAmfDeserializer CreateDeserializer(AmfVersion version, IList<object> references=null)
         {
             switch (version)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Deserializer(_reader);
+                    return new Amf0Deserializer(_reader, references);
 
                 case AmfVersion.Amf3:
-                    return new Amf3Deserializer(_reader);
+                    return new Amf3Deserializer(_reader, references);
 
                 default:
                     throw new NotSupportedException("Deserializer for AMF type '" + version + "' is not implemented.");
             }
+        }
+
+        /// <summary>
+        /// Context switch event handler.
+        /// </summary>
+        private void OnContextSwitch(object sender, ContextSwitchEventArgs e)
+        {
+            _deserializer.Context = CreateDeserializer(e.ContextVersion, e.References);
         }
         #endregion
 

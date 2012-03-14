@@ -1,4 +1,7 @@
-﻿using DotAmf.Data;
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using DotAmf.Data;
 
 namespace DotAmf.Serialization
 {
@@ -8,28 +11,45 @@ namespace DotAmf.Serialization
     public interface IAmfDeserializer
     {
         /// <summary>
-        /// Clear stored object references.
+        /// Read an AMF header.
+        /// </summary>
+        /// <remarks>
+        /// Reader's current position must be set on header's 0 position.
+        /// </remarks>
+        AmfHeader ReadHeader();
+
+        /// <summary>
+        /// Read an AMF message.
+        /// </summary>
+        /// <remarks>
+        /// Reader's current position must be set on message's 0 position.
+        /// </remarks>
+        AmfMessage ReadMessage();
+
+        /// <summary>
+        /// Read a value.
+        /// </summary>
+        /// <remarks>
+        /// Reader's current position must be set on a value type marker.
+        /// </remarks>
+        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
+        /// <exception cref="FormatException">Unknown data format.</exception>
+        /// <exception cref="SerializationException">Error during deserialization.</exception>
+        object ReadValue();
+
+        /// <summary>
+        /// Clear stored references.
         /// </summary>
         void ClearReferences();
 
         /// <summary>
-        /// Read next AMF header.
+        /// Switch AMF context event.
         /// </summary>
-        AmfHeader ReadNextHeader();
+        event ContextSwitch ContextSwitch;
 
         /// <summary>
-        /// Read next AMF message.
+        /// AMF context setter. Set to <c>null</c> to remove a context.
         /// </summary>
-        AmfMessage ReadNextMessage();
-
-        /// <summary>
-        /// Read header count.
-        /// </summary>
-        ushort ReadHeaderCount();
-
-        /// <summary>
-        /// Read message count.
-        /// </summary>
-        ushort ReadMessageCount();
+        IAmfDeserializer Context { set; }
     }
 }

@@ -11,49 +11,22 @@ namespace DotAmf.Serialization
     /// <summary>
     /// AMF0 deserializer.
     /// </summary>
-    public class Amf0Deserializer : IAmfDeserializer
+    public class Amf0Deserializer : AmfDeserializerBase
     {
         #region .ctor
-        public Amf0Deserializer(AmfStreamReader reader)
+        public Amf0Deserializer(AmfStreamReader reader, IList<object> references)
+            : base(reader, references)
         {
-            if (reader == null) throw new ArgumentNullException("reader");
-            _reader = reader;
-
-            _references = new List<object>();
         }
-        #endregion
 
-        #region Data
-        /// <summary>
-        /// AMF stream reader.
-        /// </summary>
-        private readonly AmfStreamReader _reader;
-
-        /// <summary>
-        /// Object references.
-        /// </summary>
-        private readonly IList<object> _references;
-        #endregion
-
-        #region Properties
-        /// <summary>
-        /// AMF stream reader.
-        /// </summary>
-        protected AmfStreamReader Reader { get { return _reader; } }
-
-        /// <summary>
-        /// Object references.
-        /// </summary>
-        protected IList<object> References { get { return _references; } }
+        public Amf0Deserializer(AmfStreamReader reader)
+            : base(reader)
+        {
+        }
         #endregion
 
         #region IAmfDeserializer implementation
-        public virtual void ClearReferences()
-        {
-            _references.Clear();
-        }
-
-        public virtual AmfHeader ReadNextHeader()
+        public override AmfHeader ReadHeader()
         {
             var header = new AmfHeader();
             header.Name = ReadString();
@@ -62,12 +35,12 @@ namespace DotAmf.Serialization
             //Value contains header's length
             Reader.ReadInt32();
 
-            header.Data = ReadNextValue();
+            header.Data = ReadValue();
 
             return header;
         }
 
-        public virtual AmfMessage ReadNextMessage()
+        public override AmfMessage ReadMessage()
         {
             var message = new AmfMessage();
             message.Target = ReadString();
@@ -76,35 +49,23 @@ namespace DotAmf.Serialization
             //Value contains message's length
             Reader.ReadInt32();
 
-            message.Data = ReadNextValue();
+            message.Data = ReadValue();
 
             return message;
-        }
-
-        public virtual ushort ReadHeaderCount()
-        {
-            //Up to 65535 headers are possible
-            return Reader.ReadUInt16();
-        }
-
-        public virtual ushort ReadMessageCount()
-        {
-            //Up to 65535 messages are possible
-            return Reader.ReadUInt16();
         }
         #endregion
 
         #region Deserialization methods
         /// <summary>
-        /// Read next value.
+        /// Read value from current position.
         /// </summary>
         /// <remarks>
         /// Current reader position must be on a value type marker.
         /// </remarks>
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
-        /// <exception cref="ArgumentException">Unknown type.</exception>
+        /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
-        protected virtual object ReadNextValue()
+        public override object ReadValue()
         {
             Amf0TypeMarker type;
 
@@ -129,7 +90,7 @@ namespace DotAmf.Serialization
         /// </remarks>
         /// <param name="type">Type of the value to read.</param>
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
-        /// <exception cref="ArgumentException">Unknown type.</exception>
+        /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
         private object ReadValue(Amf0TypeMarker type)
         {
@@ -178,20 +139,11 @@ namespace DotAmf.Serialization
                     throw new NotSupportedException("Type '" + type + "' is not supported.");
 
                 case Amf0TypeMarker.AvmPlusObject:
-                    throw new NotSupportedException("AVM+ types are not supported in this deserializer.");
+                    return ReadAmvPlusValue();
 
                 default:
                     throw new ArgumentException("type");
             }
-        }
-
-        /// <summary>
-        /// Save object to a list of references.
-        /// </summary>
-        /// <param name="value">Object to save or <c>null</c></param>
-        protected void SaveReference(object value)
-        {
-            References.Add(value);
         }
 
         /// <summary>
@@ -320,7 +272,7 @@ namespace DotAmf.Serialization
                 //An empty property name indicates that object's declaration ends here
                 while (property != string.Empty)
                 {
-                    result[property] = ReadNextValue();
+                    result[property] = ReadValue();
 
                     property = ReadString();
                 }
@@ -434,10 +386,10 @@ namespace DotAmf.Serialization
             {
                 try
                 {
-                    var value = ReadNextValue();
+                    var value = ReadValue();
                     result.Add(value);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     //We can't afford any errors here since it will break our reference map
                     error = e;
@@ -452,6 +404,23 @@ namespace DotAmf.Serialization
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Read AMV+ value.
+        /// </summary>
+        private object ReadAmvPlusValue()
+        {
+            SwitchContext(AmfVersion.Amf3);
+
+            try
+            {
+                return Context.ReadValue();
+            }
+            finally
+            {
+                Context = null;
+            }
         }
         #endregion
     }
