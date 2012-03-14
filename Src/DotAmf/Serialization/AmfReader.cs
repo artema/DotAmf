@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using DotAmf.Data;
@@ -130,16 +129,15 @@ namespace DotAmf.Serialization
         /// Create AMF deserializer.
         /// </summary>
         /// <param name="version">AMF version.</param>
-        /// <param name="references">Object references to use.</param>
-        private IAmfDeserializer CreateDeserializer(AmfVersion version, IList<object> references=null)
+        private IAmfDeserializer CreateDeserializer(AmfVersion version)
         {
             switch (version)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Deserializer(_reader, references);
+                    return new Amf0Deserializer(_reader);
 
                 case AmfVersion.Amf3:
-                    return new Amf3Deserializer(_reader, references);
+                    return new Amf3Deserializer(_reader);
 
                 default:
                     throw new NotSupportedException("Deserializer for AMF type '" + version + "' is not implemented.");
@@ -151,7 +149,7 @@ namespace DotAmf.Serialization
         /// </summary>
         private void OnContextSwitch(object sender, ContextSwitchEventArgs e)
         {
-            _deserializer.Context = CreateDeserializer(e.ContextVersion, e.References);
+            _deserializer.Context = CreateDeserializer(e.ContextVersion);
         }
         #endregion
 

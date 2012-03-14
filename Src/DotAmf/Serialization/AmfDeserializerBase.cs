@@ -15,22 +15,12 @@ namespace DotAmf.Serialization
         /// Constructor.
         /// </summary>
         /// <param name="reader">AMF stream reader.</param>
-        /// <param name="references">Object references to use.</param>
-        protected AmfDeserializerBase(AmfStreamReader reader, IList<object> references)
+        protected AmfDeserializerBase(AmfStreamReader reader)
         {
             if (reader == null) throw new ArgumentNullException("reader");
             _reader = reader;
 
-            _references = references ?? new List<object>();
-        }
-
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        /// <param name="reader">AMF stream reader.</param>
-        protected AmfDeserializerBase(AmfStreamReader reader)
-            : this(reader, null)
-        {
+            _references = new List<object>();
         }
         #endregion
 
@@ -90,7 +80,7 @@ namespace DotAmf.Serialization
         /// </summary>
         protected void SwitchContext(AmfVersion contextVersion)
         {
-            OnContextSwitchEvent(new ContextSwitchEventArgs(contextVersion, References));
+            OnContextSwitchEvent(new ContextSwitchEventArgs(contextVersion));
         }
         #endregion
 

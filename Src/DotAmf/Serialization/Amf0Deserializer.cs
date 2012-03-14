@@ -14,11 +14,6 @@ namespace DotAmf.Serialization
     public class Amf0Deserializer : AmfDeserializerBase
     {
         #region .ctor
-        public Amf0Deserializer(AmfStreamReader reader, IList<object> references)
-            : base(reader, references)
-        {
-        }
-
         public Amf0Deserializer(AmfStreamReader reader)
             : base(reader)
         {
