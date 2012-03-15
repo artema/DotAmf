@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
 using System.Xml;
 using System.Text;
 using DotAmf.Data;
-using DotAmf.IO;
 
 namespace DotAmf.Serialization
 {
@@ -14,12 +14,12 @@ namespace DotAmf.Serialization
     public class Amf0Deserializer : AmfDeserializerBase
     {
         #region .ctor
-        public Amf0Deserializer(AmfStreamReader reader, AmfVersion initialContext)
+        public Amf0Deserializer(BinaryReader reader, AmfVersion initialContext)
             : base(reader, initialContext)
         {
         }
 
-        public Amf0Deserializer(AmfStreamReader reader)
+        public Amf0Deserializer(BinaryReader reader)
             : this(reader, AmfVersion.Amf0)
         {
         }

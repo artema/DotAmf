@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using DotAmf.Data;
-using DotAmf.IO;
 
 namespace DotAmf.Serialization
 {
@@ -16,7 +16,7 @@ namespace DotAmf.Serialization
         /// </summary>
         /// <param name="reader">AMF stream reader.</param>
         /// <param name="initialContext">Initial AMF initialContext.</param>
-        protected AmfDeserializerBase(AmfStreamReader reader, AmfVersion initialContext)
+        protected AmfDeserializerBase(BinaryReader reader, AmfVersion initialContext)
         {
             if (reader == null) throw new ArgumentNullException("reader");
             _reader = reader;
@@ -31,7 +31,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// AMF stream reader.
         /// </summary>
-        private readonly AmfStreamReader _reader;
+        private readonly BinaryReader _reader;
 
         /// <summary>
         /// References.
@@ -48,7 +48,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Stream reader.
         /// </summary>
-        protected AmfStreamReader Reader { get { return _reader; } }
+        protected BinaryReader Reader { get { return _reader; } }
 
         /// <summary>
         /// References.

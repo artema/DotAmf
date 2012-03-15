@@ -28,7 +28,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Stream reader.
         /// </summary>
-        private readonly AmfStreamReader _reader;
+        private readonly BinaryReader _reader;
 
         /// <summary>
         /// Current AMF deserializer.
