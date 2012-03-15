@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotAmf", "Src\DotAmf\DotAmf.csproj", "{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotAmf.Wcf", "Src\DotAmf.Wcf\DotAmf.Wcf.csproj", "{7F1303A6-9994-490E-B6B3-BDC5113281EE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,6 +25,16 @@ Global
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|x86.ActiveCfg = Release|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{7F1303A6-9994-490E-B6B3-BDC5113281EE}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
