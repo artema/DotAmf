@@ -14,8 +14,13 @@ namespace DotAmf.Serialization
     public class Amf0Deserializer : AmfDeserializerBase
     {
         #region .ctor
+        public Amf0Deserializer(AmfStreamReader reader, AmfVersion initialContext)
+            : base(reader, initialContext)
+        {
+        }
+
         public Amf0Deserializer(AmfStreamReader reader)
-            : base(reader)
+            : this(reader, AmfVersion.Amf0)
         {
         }
         #endregion
@@ -48,20 +53,12 @@ namespace DotAmf.Serialization
 
             return message;
         }
-        #endregion
-
-        #region Deserialization methods
-        /// <summary>
-        /// Read value from current position.
-        /// </summary>
-        /// <remarks>
-        /// Current reader position must be on a value type marker.
-        /// </remarks>
-        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
-        /// <exception cref="FormatException">Unknown data format.</exception>
-        /// <exception cref="SerializationException">Error during deserialization.</exception>
+        
         public override object ReadValue()
         {
+            if(Context != AmfVersion.Amf0)
+                throw new InvalidOperationException("Invalid AMF context: " + Context);
+
             Amf0TypeMarker type;
 
             try
@@ -76,7 +73,9 @@ namespace DotAmf.Serialization
 
             return ReadValue(type);
         }
+        #endregion
 
+        #region Deserialization methods
         /// <summary>
         /// Read a value of a given type from current position.
         /// </summary>
@@ -369,9 +368,9 @@ namespace DotAmf.Serialization
         /// <c>array-count = U32
         /// strict-array-type = array-count *(value-type)</c>
         /// </remarks>
-        private StrictArray ReadStrictArray()
+        private IList<object> ReadStrictArray()
         {
-            var result = new StrictArray();
+            var result = new List<object>();
             SaveReference(result); //Save reference to this object
 
             var length = Reader.ReadUInt32();
@@ -406,15 +405,17 @@ namespace DotAmf.Serialization
         /// </summary>
         private object ReadAmvPlusValue()
         {
-            SwitchContext(AmfVersion.Amf3);
+            //Set new context only for the next value, then switch back
+            var oldContext = Context;
+            Context = AmfVersion.Amf3;
 
             try
             {
-                return Context.ReadValue();
+                return ReadValue();
             }
             finally
             {
-                Context = null;
+                Context = oldContext;
             }
         }
         #endregion

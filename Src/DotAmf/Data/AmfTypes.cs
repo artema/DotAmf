@@ -34,6 +34,8 @@ namespace DotAmf.Data
             foreach (var pair in newPoperties)
                 this[pair.Key] = pair.Value;
         }
+
+        public Traits Traits { get; set; }
     }
 
     /// <summary>
@@ -63,8 +65,36 @@ namespace DotAmf.Data
     }
 
     /// <summary>
-    /// Strict array.
+    /// Object's traits.
     /// </summary>
-    sealed public class StrictArray : List<object>
-    {}
+    sealed public class Traits
+    {
+        public string Type { get; set; }
+
+        public int Count { get; set; }
+
+        public bool IsExternalizable { get; set; }
+
+        public bool IsDynamic { get; set; }
+
+        public IList<string> ClassMembers { get; set; }
+    }
+
+    /// <summary>
+    /// Associative array.
+    /// </summary>
+    sealed public class AssociativeArray : List<object>
+    {
+        #region .ctor
+        public AssociativeArray()
+        {
+            AssociativeValues = new AnonymousObject();
+        }
+        #endregion
+
+        /// <summary>
+        /// Array's associative values.
+        /// </summary>
+        public AnonymousObject AssociativeValues { get; private set; }
+    }
 }

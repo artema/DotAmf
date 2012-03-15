@@ -50,10 +50,11 @@
     <Compile Include="IO\AmfStreamReader.cs" />
     <Compile Include="IO\ByteConverter.cs" />
     <Compile Include="Serialization\AmfDeserializerBase.cs" />
-    <Compile Include="Serialization\AmfReader.cs" />
+    <Compile Include="Serialization\AmfPacketReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Serialization\Amf0Deserializer.cs" />
     <Compile Include="Serialization\Amf3Deserializer.cs" />
+    <Compile Include="Serialization\ClassAliasUtil.cs" />
     <Compile Include="Serialization\ContextSwitchEvent.cs" />
     <Compile Include="Serialization\IAmfDeserializer.cs" />
   </ItemGroup>

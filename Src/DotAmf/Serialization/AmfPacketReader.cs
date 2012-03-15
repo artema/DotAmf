@@ -7,16 +7,16 @@ using DotAmf.IO;
 namespace DotAmf.Serialization
 {
     /// <summary>
-    /// AMF reader.
+    /// AMF packet reader.
     /// </summary>
-    sealed public class AmfReader : IDisposable
+    sealed public class AmfPacketReader : IDisposable
     {
         #region .ctor
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="stream">AMF0 data stream.</param>
-        public AmfReader(Stream stream)
+        public AmfPacketReader(Stream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
@@ -136,8 +136,11 @@ namespace DotAmf.Serialization
                 case AmfVersion.Amf0:
                     return new Amf0Deserializer(_reader);
 
+                //By default, all AMF packets are encoded in AMF0.
+                //A type marker 0x11 is used to temporary switch
+                //to AMF3 context for the next encoded value.
                 case AmfVersion.Amf3:
-                    return new Amf3Deserializer(_reader);
+                    return new Amf3Deserializer(_reader, AmfVersion.Amf0);
 
                 default:
                     throw new NotSupportedException("Deserializer for AMF type '" + version + "' is not implemented.");
@@ -149,7 +152,7 @@ namespace DotAmf.Serialization
         /// </summary>
         private void OnContextSwitch(object sender, ContextSwitchEventArgs e)
         {
-            _deserializer.Context = CreateDeserializer(e.ContextVersion);
+            _deserializer.ClearReferences();
         }
         #endregion
 

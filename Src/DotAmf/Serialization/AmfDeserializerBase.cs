@@ -15,10 +15,13 @@ namespace DotAmf.Serialization
         /// Constructor.
         /// </summary>
         /// <param name="reader">AMF stream reader.</param>
-        protected AmfDeserializerBase(AmfStreamReader reader)
+        /// <param name="initialContext">Initial AMF initialContext.</param>
+        protected AmfDeserializerBase(AmfStreamReader reader, AmfVersion initialContext)
         {
             if (reader == null) throw new ArgumentNullException("reader");
             _reader = reader;
+
+            _context = initialContext;
 
             _references = new List<object>();
         }
@@ -34,6 +37,11 @@ namespace DotAmf.Serialization
         /// References.
         /// </summary>
         private readonly IList<object> _references;
+
+        /// <summary>
+        /// Current AMF context.
+        /// </summary>
+        private AmfVersion _context;
         #endregion
 
         #region Properties
@@ -62,7 +70,20 @@ namespace DotAmf.Serialization
             _references.Clear();
         }
 
-        public IAmfDeserializer Context { set; protected get; }
+        public AmfVersion Context
+        {
+            protected set
+            {
+                if (value != _context)
+                {
+                    _context = value;
+                    OnContextSwitchEvent(new ContextSwitchEventArgs(value));
+                }
+                else
+                    _context = value;
+            }
+            get { return _context; }
+        }
         #endregion
 
         #region Protected methods
@@ -73,14 +94,6 @@ namespace DotAmf.Serialization
         protected void SaveReference(object value)
         {
             References.Add(value);
-        }
-
-        /// <summary>
-        /// Switch AMF context.
-        /// </summary>
-        protected void SwitchContext(AmfVersion contextVersion)
-        {
-            OnContextSwitchEvent(new ContextSwitchEventArgs(contextVersion));
         }
         #endregion
 

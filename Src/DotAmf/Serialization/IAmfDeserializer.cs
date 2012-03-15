@@ -35,6 +35,7 @@ namespace DotAmf.Serialization
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
         /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
+        /// <exception cref="InvalidOperationException">Invalid AMF context.</exception>
         object ReadValue();
 
         /// <summary>
@@ -43,13 +44,13 @@ namespace DotAmf.Serialization
         void ClearReferences();
 
         /// <summary>
-        /// Switch AMF context event.
+        /// AMF context switch event.
         /// </summary>
         event ContextSwitch ContextSwitch;
 
         /// <summary>
-        /// AMF context setter. Set to <c>null</c> to remove a context.
+        /// Current AMF context.
         /// </summary>
-        IAmfDeserializer Context { set; }
+        AmfVersion Context { get; }
     }
 }

@@ -6,13 +6,23 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
