@@ -49,6 +49,7 @@
     <Compile Include="IO\AmfStreamWriter.cs" />
     <Compile Include="IO\AmfStreamReader.cs" />
     <Compile Include="IO\ByteConverter.cs" />
+    <Compile Include="Serialization\Amf0Serializer.cs" />
     <Compile Include="Serialization\AmfDeserializerBase.cs" />
     <Compile Include="Serialization\AmfPacketReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -56,6 +57,10 @@
     <Compile Include="Serialization\Amf3Deserializer.cs" />
     <Compile Include="Serialization\ClassAliasUtil.cs" />
     <Compile Include="Serialization\ContextSwitchEvent.cs" />
+    <Compile Include="Serialization\AmfSerializerBase.cs" />
+    <Compile Include="Serialization\Amf3Serializer.cs" />
+    <Compile Include="Serialization\AmfPacketWriter.cs" />
+    <Compile Include="Serialization\IAmfSerializer.cs" />
     <Compile Include="Serialization\IAmfDeserializer.cs" />
   </ItemGroup>
   <ItemGroup>

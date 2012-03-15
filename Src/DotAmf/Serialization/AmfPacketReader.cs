@@ -15,7 +15,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Constructor.
         /// </summary>
-        /// <param name="stream">AMF0 data stream.</param>
+        /// <param name="stream">AMF input stream.</param>
         public AmfPacketReader(Stream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
