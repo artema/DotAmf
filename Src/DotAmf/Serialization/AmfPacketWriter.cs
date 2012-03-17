@@ -53,30 +53,30 @@ namespace DotAmf.Serialization
         /// Write an AMF packet.
         /// </summary>
         /// <exception cref="SerializationException">Error during serialization.</exception>
-        public void Write(AmfPacket packet)
+        public void Write(AmfPacket packet, AmfVersion version)
         {
             if (packet == null) throw new ArgumentNullException("packet");
             if (packet.Messages.Count == 0) throw new ArgumentException("Packet contains no messages.", "packet");
 
             try
             {
-                _packetSerializer = CreateSerializer(packet.Version);
+                _packetSerializer = CreateSerializer(version);
 
-                _dataSerializer = packet.Version != AmfVersion.Amf0
-                                      ? CreateSerializer(packet.Version)
+                _dataSerializer = version != AmfVersion.Amf0
+                                      ? CreateSerializer(version)
                                       : _packetSerializer;
 
                 var headerCount = (uint) packet.Headers.Count;
                 WriteHeaderCount(headerCount);
 
                 for (var i = 0; i < headerCount; i++)
-                    WriteHeader(packet.Headers[i], packet.Version);
+                    WriteHeader(packet.Headers[i], version);
 
                 var messageCount = (uint)packet.Messages.Count;
                 WriteMessageCount(messageCount);
 
                 for (var i = 0; i < messageCount; i++)
-                    WriteMessage(packet.Messages[i], packet.Version);
+                    WriteMessage(packet.Messages[i], version);
 
             }
             catch (Exception e)

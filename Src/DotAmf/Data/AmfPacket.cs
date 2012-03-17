@@ -8,19 +8,12 @@ namespace DotAmf.Data
     sealed public class AmfPacket
     {
         #region .ctor
-        public AmfPacket(AmfVersion version)
+        public AmfPacket()
         {
-            Version = version;
-
             Headers = new List<AmfHeader>();
             Messages = new List<AmfMessage>();
         }
         #endregion
-
-        /// <summary>
-        /// Message version.
-        /// </summary>
-        public AmfVersion Version { get; private set; }
 
         /// <summary>
         /// Packet headers.

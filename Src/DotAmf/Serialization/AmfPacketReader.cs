@@ -50,7 +50,7 @@ namespace DotAmf.Serialization
             try
             {
                 var version = ReadAmfVersion();
-                var packet = new AmfPacket(version);
+                var packet = new AmfPacket();
 
                 _deserializer = CreateDeserializer(version);
                 _deserializer.ContextSwitch += OnContextSwitch;
