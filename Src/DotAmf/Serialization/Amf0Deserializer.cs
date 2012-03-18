@@ -26,34 +26,6 @@ namespace DotAmf.Serialization
         #endregion
 
         #region IAmfDeserializer implementation
-        public override AmfHeader ReadHeader()
-        {
-            var header = new AmfHeader();
-            header.Name = ReadString();
-            header.MustUnderstand = Reader.ReadBoolean();
-
-            //Value contains header's length
-            Reader.ReadInt32();
-
-            header.Data = ReadValue();
-
-            return header;
-        }
-
-        public override AmfMessage ReadMessage()
-        {
-            var message = new AmfMessage();
-            message.Target = ReadString();
-            message.Response = ReadString();
-
-            //Value contains message's length
-            Reader.ReadInt32();
-
-            message.Data = ReadValue();
-
-            return message;
-        }
-        
         public override object ReadValue()
         {
             if(Context != AmfVersion.Amf0)
@@ -77,7 +49,7 @@ namespace DotAmf.Serialization
 
         #region Deserialization methods
         /// <summary>
-        /// Read a value of a given type from current position.
+        /// Read a value of a given type from current reader's position.
         /// </summary>
         /// <remarks>
         /// Current reader position must be just after a value type marker of a type to read.
@@ -86,7 +58,7 @@ namespace DotAmf.Serialization
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
         /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
-        private object ReadValue(Amf0TypeMarker type)
+        public object ReadValue(Amf0TypeMarker type)
         {
             switch (type)
             {
@@ -256,7 +228,7 @@ namespace DotAmf.Serialization
         /// <c>object-property = (UTF-8 value-type) | (UTF-8-empty object-end-marker)</c>
         /// </remarks>
         /// <exception cref="SerializationException"></exception>
-        private Dictionary<string, object> ReadPropertiesMap()
+        private IDictionary<string, object> ReadPropertiesMap()
         {
             try
             {
@@ -300,7 +272,9 @@ namespace DotAmf.Serialization
             SaveReference(result); //Save reference to this object
 
             var properties = ReadPropertiesMap();
-            result.ReplaceProperties(properties);
+
+            foreach (var pair in properties)
+                result[pair.Key] = pair.Value;
 
             return result;
         }
@@ -331,7 +305,9 @@ namespace DotAmf.Serialization
             SaveReference(result); //Save reference to this object
 
             var properties = ReadPropertiesMap();
-            result.ReplaceProperties(properties);
+
+            foreach (var pair in properties)
+                result[pair.Key] = pair.Value;
 
             return result;
         }
@@ -355,7 +331,8 @@ namespace DotAmf.Serialization
             if (properties.Count != length)
                 throw new SerializationException("Invalid array length.");
 
-            result.ReplaceProperties(properties);
+            foreach (var pair in properties)
+                result[pair.Key] = pair.Value;
 
             return result;
         }

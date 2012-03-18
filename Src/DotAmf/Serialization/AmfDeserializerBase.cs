@@ -15,7 +15,7 @@ namespace DotAmf.Serialization
         /// Constructor.
         /// </summary>
         /// <param name="reader">AMF stream reader.</param>
-        /// <param name="initialContext">Initial AMF initialContext.</param>
+        /// <param name="initialContext">Initial AMF context.</param>
         protected AmfDeserializerBase(BinaryReader reader, AmfVersion initialContext)
         {
             if (reader == null) throw new ArgumentNullException("reader");
@@ -58,10 +58,6 @@ namespace DotAmf.Serialization
 
         #region IAmfDeserializer implementation
         public event ContextSwitch ContextSwitch;
-
-        public abstract AmfHeader ReadHeader();
-
-        public abstract AmfMessage ReadMessage();
 
         public abstract object ReadValue();
 

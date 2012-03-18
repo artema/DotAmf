@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
@@ -120,7 +119,7 @@ namespace DotAmf.Serialization
 
         #region Deserialization methods
         /// <summary>
-        /// Read a value of a given type from current position.
+        /// Read a value of a given type from current reader's position.
         /// </summary>
         /// <remarks>
         /// Current reader position must be just after a value type marker of a type to read.
@@ -129,7 +128,7 @@ namespace DotAmf.Serialization
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
         /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
-        private object ReadValue(Amf3TypeMarker type)
+        public object ReadValue(Amf3TypeMarker type)
         {
             switch (type)
             {
@@ -361,24 +360,26 @@ namespace DotAmf.Serialization
         /// array-type = array-marker (U29O-ref | 
         /// (U29A-value (UTF-8-empty | *(assoc-value) UTF-8-empty) *(value-type)))</c>
         /// </remarks>
-        private AmfEcmaArray ReadArray()
+        private AmfPlusArray ReadArray()
         {
             int reference;
             object cache;
 
-            if ((cache = ReadReference(out reference)) != null) return (AmfEcmaArray) cache;
+            if ((cache = ReadReference(out reference)) != null) return (AmfPlusArray)cache;
 
-            var array = new AmfEcmaArray();
+            var array = new AmfPlusArray();
             var key = ReadString();
 
+            //Read associative values
             while (key != string.Empty)
             {
-                array.AssociativeValues[key] = ReadValue();
+                array[key] = ReadValue();
                 key = ReadString();
             }
 
             var length = reference >> 1;
 
+            //Read array values
             for (var i = 0; i < length; i++)
             {
                 array[i] = ReadValue();
@@ -391,7 +392,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Read an object.
         /// </summary>
-        private AmfObject ReadObject()
+        private AmfPlusObject ReadObject()
         {
             var reference = ReadUint29();
             AmfTypeTraits traits;
@@ -414,40 +415,31 @@ namespace DotAmf.Serialization
                 for (var i = 0; i < count; i++)
                     classMembers.Add(ReadString());
 
-                traits = new AmfTypeTraits(type, classMembers)
-                             {
-                                 IsDynamic = isDynamic,
-                                 IsExternalizable = isExternalizable
-                             };
+                //No property names are included for types
+                //that are externizable
+                traits = isExternalizable
+                             ? new AmfTypeTraits(type, isDynamic)
+                             : new AmfTypeTraits(type, classMembers, isDynamic);
 
                 SaveReference(traits);
             }
 
-            var result = string.IsNullOrEmpty(traits.TypeName) ? 
-                new AmfObject { Traits = traits } : 
-                new TypedAmfObject(traits.TypeName) { Traits = traits };
+            var result = new AmfPlusObject(traits);
             
             SaveReference(result);
 
-            if (traits.IsExternalizable)
-            {
+            foreach (var classMember in traits.ClassMembers)
+                result[classMember] = ReadValue();
 
-            }
-            else
+            if (traits.IsDynamic)
             {
-                foreach (var classMember in traits.ClassMembers)
-                    result[classMember] = ReadValue();
+                var key = ReadString();
 
-                if (traits.IsDynamic)
+                while (key != string.Empty)
                 {
-                    var key = ReadString();
-
-                    while (key != string.Empty)
-                    {
-                        var value = ReadValue();
-                        result[key] = value;
-                        key = ReadString();
-                    }
+                    var value = ReadValue();
+                    result[key] = value;
+                    key = ReadString();
                 }
             }
 

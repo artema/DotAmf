@@ -33,7 +33,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Current AMF deserializer.
         /// </summary>
-        private IAmfDeserializer _deserializer;
+        private Amf0Deserializer _deserializer;
         #endregion
 
         #region Public methods
@@ -56,24 +56,24 @@ namespace DotAmf.Serialization
                 _deserializer.ContextSwitch += OnContextSwitch;
 
                 //Read headers count
-                var headerCount = ReadHeaderCount();
+                var headerCount = _reader.ReadUInt16();
 
                 for (var i = 0; i < headerCount; i++)
                 {
                     _deserializer.ClearReferences();
 
-                    var header = _deserializer.ReadHeader();
+                    var header = ReadHeader();
                     packet.Headers[header.Name] = header;
                 }
 
                 //Read messages count
-                var messageCount = ReadMessageCount();
+                var messageCount = _reader.ReadUInt16();
 
                 for (var i = 0; i < messageCount; i++)
                 {
                     _deserializer.ClearReferences();
 
-                    var message = _deserializer.ReadMessage();
+                    var message = ReadMessage();
                     packet.Messages.Add(message);
                 }
 
@@ -105,7 +105,7 @@ namespace DotAmf.Serialization
             try
             {
                 //First two bytes contain message version number
-                return (AmfVersion) _reader.ReadUInt16();
+                return (AmfVersion)_reader.ReadUInt16();
             }
             catch
             {
@@ -113,23 +113,51 @@ namespace DotAmf.Serialization
             }
         }
 
-        private ushort ReadHeaderCount()
+        /// <summary>
+        /// Read an AMF header.
+        /// </summary>
+        /// <remarks>
+        /// Reader's current position must be set on header's 0 position.
+        /// </remarks>
+        private AmfHeader ReadHeader()
         {
-            //Up to 65535 headers are possible
-            return _reader.ReadUInt16();
+            var header = new AmfHeader();
+            header.Name = (string)_deserializer.ReadValue(Amf0TypeMarker.String);
+            header.MustUnderstand = (bool)_deserializer.ReadValue(Amf0TypeMarker.Boolean);
+
+            //Value contains header's length
+            _reader.ReadInt32();
+
+            header.Data = _deserializer.ReadValue();
+
+            return header;
         }
 
-        private ushort ReadMessageCount()
+        /// <summary>
+        /// Read an AMF message.
+        /// </summary>
+        /// <remarks>
+        /// Reader's current position must be set on message's 0 position.
+        /// </remarks>
+        private AmfMessage ReadMessage()
         {
-            //Up to 65535 messages are possible
-            return _reader.ReadUInt16();
+            var message = new AmfMessage();
+            message.Target = (string)_deserializer.ReadValue(Amf0TypeMarker.String);
+            message.Response = (string)_deserializer.ReadValue(Amf0TypeMarker.String);
+
+            //Value contains message's length
+            _reader.ReadInt32();
+
+            message.Data = _deserializer.ReadValue();
+
+            return message;
         }
 
         /// <summary>
         /// Create AMF deserializer.
         /// </summary>
         /// <param name="version">AMF version.</param>
-        private IAmfDeserializer CreateDeserializer(AmfVersion version)
+        private Amf0Deserializer CreateDeserializer(AmfVersion version)
         {
             switch (version)
             {

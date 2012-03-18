@@ -11,22 +11,6 @@ namespace DotAmf.Serialization
     public interface IAmfDeserializer
     {
         /// <summary>
-        /// Read an AMF header.
-        /// </summary>
-        /// <remarks>
-        /// Reader's current position must be set on header's 0 position.
-        /// </remarks>
-        AmfHeader ReadHeader();
-
-        /// <summary>
-        /// Read an AMF message.
-        /// </summary>
-        /// <remarks>
-        /// Reader's current position must be set on message's 0 position.
-        /// </remarks>
-        AmfMessage ReadMessage();
-
-        /// <summary>
         /// Read a value.
         /// </summary>
         /// <remarks>
