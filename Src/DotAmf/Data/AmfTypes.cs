@@ -4,15 +4,22 @@ using System.Collections.Generic;
 namespace DotAmf.Data
 {
     /// <summary>
-    /// Anonymous object.
+    /// AMF object.
     /// </summary>
-    public class AnonymousObject : Dictionary<string,object>
+    public class AmfObject : Dictionary<string,object>
     {
         #region .ctor
-        public AnonymousObject()
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public AmfObject()
         {}
 
-        public AnonymousObject(Dictionary<string,object> properties)
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="properties">Object's properties map.</param>
+        public AmfObject(IDictionary<string,object> properties)
         {
             if (properties == null) throw new ArgumentNullException("properties");
 
@@ -35,22 +42,25 @@ namespace DotAmf.Data
                 this[pair.Key] = pair.Value;
         }
 
-        public Traits Traits { get; set; }
+        /// <summary>
+        /// Type traits.
+        /// </summary>
+        public AmfTypeTraits Traits { get; set; }
     }
 
     /// <summary>
     /// Strongly-typed object.
     /// </summary>
-    sealed public class TypedObject : AnonymousObject
+    sealed public class TypedAmfObject : AmfObject
     {
         #region .ctor
-        public TypedObject(string className)
+        public TypedAmfObject(string className)
         {
             if (string.IsNullOrEmpty(className)) throw new ArgumentException("className");
             ClassName = className;
         }
 
-        public TypedObject(string className, Dictionary<string, object> properties)
+        public TypedAmfObject(string className, Dictionary<string, object> properties)
             : base(properties)
         {
             if (string.IsNullOrEmpty(className)) throw new ArgumentException("className");
@@ -65,36 +75,76 @@ namespace DotAmf.Data
     }
 
     /// <summary>
-    /// Object's traits.
+    /// AMF type's traits.
     /// </summary>
-    sealed public class Traits
+    sealed public class AmfTypeTraits
     {
-        public string Type { get; set; }
+        #region .ctor
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="typeName">Fully qualified type name.</param>
+        /// <param name="classMembers">A list of type members.</param>
+        public AmfTypeTraits(string typeName, IEnumerable<string> classMembers)
+        {
+            if (string.IsNullOrEmpty(typeName)) throw new ArgumentException("typeName");
+            TypeName = typeName;
 
-        public int Count { get; set; }
+            if (classMembers == null) throw new ArgumentNullException("classMembers");
+            ClassMembers = classMembers;
+        }
 
+        /// <summary>
+        /// Constructs an object with no class members.
+        /// </summary>
+        /// <param name="typeName">Fully qualified type name.</param>
+        public AmfTypeTraits(string typeName)
+            : this(typeName, new List<string>())
+        {
+        }
+        #endregion
+
+        #region Properties
+        /// <summary>
+        /// Fully qualified type name.
+        /// </summary>
+        public string TypeName { get; private set; }
+
+        /// <summary>
+        /// A list of type members.
+        /// </summary>
+        public IEnumerable<string> ClassMembers { get; private set; }
+
+        /// <summary>
+        /// Type is externalizable.
+        /// </summary>
         public bool IsExternalizable { get; set; }
 
+        /// <summary>
+        /// Type is dynamic.
+        /// </summary>
         public bool IsDynamic { get; set; }
-
-        public IList<string> ClassMembers { get; set; }
+        #endregion
     }
 
     /// <summary>
-    /// Associative array.
+    /// ECMA array.
     /// </summary>
-    sealed public class AssociativeArray : List<object>
+    sealed public class AmfEcmaArray : List<object>
     {
         #region .ctor
-        public AssociativeArray()
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public AmfEcmaArray()
         {
-            AssociativeValues = new AnonymousObject();
+            AssociativeValues = new AmfObject();
         }
         #endregion
 
         /// <summary>
         /// Array's associative values.
         /// </summary>
-        public AnonymousObject AssociativeValues { get; private set; }
+        public AmfObject AssociativeValues { get; private set; }
     }
 }

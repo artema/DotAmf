@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
@@ -18,7 +19,7 @@ namespace DotAmf.Serialization
             : base(reader, initialContext)
         {
             _stringReferences = new List<string>();
-            _traitReferences = new List<Traits>();
+            _traitReferences = new List<AmfTypeTraits>();
         }
 
         public Amf3Deserializer(BinaryReader reader)
@@ -36,7 +37,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Object traits references.
         /// </summary>
-        private readonly IList<Traits> _traitReferences;
+        private readonly IList<AmfTypeTraits> _traitReferences;
         #endregion
 
         #region References
@@ -53,7 +54,7 @@ namespace DotAmf.Serialization
         /// Save object traits to a list of traits references.
         /// </summary>
         /// <param name="value">Traits to save or <c>null</c></param>
-        private void SaveReference(Traits value)
+        private void SaveReference(AmfTypeTraits value)
         {
             _traitReferences.Add(value);
         }
@@ -360,14 +361,14 @@ namespace DotAmf.Serialization
         /// array-type = array-marker (U29O-ref | 
         /// (U29A-value (UTF-8-empty | *(assoc-value) UTF-8-empty) *(value-type)))</c>
         /// </remarks>
-        private AssociativeArray ReadArray()
+        private AmfEcmaArray ReadArray()
         {
             int reference;
             object cache;
 
-            if ((cache = ReadReference(out reference)) != null) return (AssociativeArray) cache;
+            if ((cache = ReadReference(out reference)) != null) return (AmfEcmaArray) cache;
 
-            var array = new AssociativeArray();
+            var array = new AmfEcmaArray();
             var key = ReadString();
 
             while (key != string.Empty)
@@ -390,39 +391,41 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Read an object.
         /// </summary>
-        private AnonymousObject ReadObject()
+        private AmfObject ReadObject()
         {
-            int reference;
-            object cache;
+            var reference = ReadUint29();
+            AmfTypeTraits traits;
 
-            if ((cache = ReadReference(out reference)) != null) return (AnonymousObject) cache;
-
-            //Read object's traits
-            var traits = new Traits();
-
+            //Get traits object by reference
             if ((reference & 0x3) == 1)
+            {
                 traits = _traitReferences[(reference >> 2)];
+            }
+            //Read object's traits
             else
             {
-                traits.IsExternalizable = ((reference & 0x4) == 4);
-                traits.IsDynamic = ((reference & 0x8) == 8);
-                traits.Type = ReadString();
-                traits.ClassMembers = new List<string>();
+                var isExternalizable = ((reference & 0x4) == 4);
+                var isDynamic = ((reference & 0x8) == 8);
+                var type = ReadString();
+                var classMembers = new List<string>();
 
                 var count = (reference >> 4);
 
                 for (var i = 0; i < count; i++)
-                    traits.ClassMembers.Add(ReadString());
+                    classMembers.Add(ReadString());
+
+                traits = new AmfTypeTraits(type, classMembers)
+                             {
+                                 IsDynamic = isDynamic,
+                                 IsExternalizable = isExternalizable
+                             };
 
                 SaveReference(traits);
             }
 
-            if (ClassAliasUtil.CoreFlexAliases.ContainsKey(traits.Type))
-                traits.Type = ClassAliasUtil.CoreFlexAliases[traits.Type];
-
-            var result = string.IsNullOrEmpty(traits.Type) ? 
-                new AnonymousObject { Traits = traits } : 
-                new TypedObject(traits.Type) { Traits = traits };
+            var result = string.IsNullOrEmpty(traits.TypeName) ? 
+                new AmfObject { Traits = traits } : 
+                new TypedAmfObject(traits.TypeName) { Traits = traits };
             
             SaveReference(result);
 
@@ -432,14 +435,8 @@ namespace DotAmf.Serialization
             }
             else
             {
-                var length = traits.ClassMembers.Count;
-
-                for (var i = 0; i < length; i++)
-                {
-                    var value = ReadValue();
-                    var key = traits.ClassMembers[i];
-                    result[key] = value;
-                }
+                foreach (var classMember in traits.ClassMembers)
+                    result[classMember] = ReadValue();
 
                 if (traits.IsDynamic)
                 {

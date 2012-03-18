@@ -294,9 +294,9 @@ namespace DotAmf.Serialization
         /// <c>object-property = (UTF-8 value-type) | (UTF-8-empty object-end-marker)
         /// anonymous-object-type = object-marker *(object-property)</c>
         /// </remarks>
-        private AnonymousObject ReadObject()
+        private AmfObject ReadObject()
         {
-            var result = new AnonymousObject();
+            var result = new AmfObject();
             SaveReference(result); //Save reference to this object
 
             var properties = ReadPropertiesMap();
@@ -313,14 +313,14 @@ namespace DotAmf.Serialization
         /// <c>class-name = UTF-8
         /// object-type = object-marker class-name *(object-property)</c>
         /// </remarks>
-        private TypedObject ReadTypedObject()
+        private TypedAmfObject ReadTypedObject()
         {
-            TypedObject result;
+            TypedAmfObject result;
 
             try
             {
                 var className = ReadString();
-                result = new TypedObject(className);
+                result = new TypedAmfObject(className);
             }
             finally
             {
@@ -344,9 +344,9 @@ namespace DotAmf.Serialization
         /// <c>associative-count = U32
         /// ecma-array-type = associative-count *(object-property)</c>
         /// </remarks>
-        private AnonymousObject ReadEcmaArray()
+        private AmfObject ReadEcmaArray()
         {
-            var result = new AnonymousObject();
+            var result = new AmfObject();
             SaveReference(result); //Save reference to this object
 
             var length = Reader.ReadUInt32();
