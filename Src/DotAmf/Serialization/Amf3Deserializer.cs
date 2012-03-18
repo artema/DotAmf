@@ -360,33 +360,49 @@ namespace DotAmf.Serialization
         /// array-type = array-marker (U29O-ref | 
         /// (U29A-value (UTF-8-empty | *(assoc-value) UTF-8-empty) *(value-type)))</c>
         /// </remarks>
-        private AmfPlusArray ReadArray()
+        private object ReadArray()
         {
             int reference;
             object cache;
 
-            if ((cache = ReadReference(out reference)) != null) return (AmfPlusArray)cache;
+            if ((cache = ReadReference(out reference)) != null) return cache;
 
-            var array = new AmfPlusArray();
             var key = ReadString();
 
-            //Read associative values
-            while (key != string.Empty)
+            //ECMA array
+            if (key != string.Empty)
             {
-                array[key] = ReadValue();
-                key = ReadString();
+                var hashmap = new AmfObject();
+
+                //Read associative values
+                do
+                {
+                    hashmap[key] = ReadValue();
+                    key = ReadString();
+                } while (key != string.Empty);
+
+                var length = reference >> 1;
+
+                //Read array values
+                for (var i = 0; i < length; i++)
+                    hashmap[i.ToString()] = ReadValue();
+
+                SaveReference(hashmap);
+                return hashmap;
             }
-
-            var length = reference >> 1;
-
-            //Read array values
-            for (var i = 0; i < length; i++)
+            //Regular array
+            else
             {
-                array[i] = ReadValue();
-            }
+                var length = reference >> 1;
+                var array = new object[length];
 
-            SaveReference(array);
-            return array;
+                //Read array values
+                for (var i = 0; i < length; i++)
+                    array[i] = ReadValue();
+
+                SaveReference(array);
+                return array;
+            }
         }
 
         /// <summary>

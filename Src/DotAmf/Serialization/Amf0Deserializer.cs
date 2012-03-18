@@ -345,12 +345,13 @@ namespace DotAmf.Serialization
         /// <c>array-count = U32
         /// strict-array-type = array-count *(value-type)</c>
         /// </remarks>
-        private IList<object> ReadStrictArray()
+        private object[] ReadStrictArray()
         {
-            var result = new List<object>();
+            var length = Reader.ReadUInt32();
+
+            var result = new object[length];
             SaveReference(result); //Save reference to this object
 
-            var length = Reader.ReadUInt32();
             Exception error = null;
 
             for (var i = 0; i < length; i++)
@@ -358,7 +359,7 @@ namespace DotAmf.Serialization
                 try
                 {
                     var value = ReadValue();
-                    result.Add(value);
+                    result[i] = value;
                 }
                 catch (Exception e)
                 {
