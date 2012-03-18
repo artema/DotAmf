@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using DotAmf.Data;
 
 namespace DotAmf.Serialization
 {

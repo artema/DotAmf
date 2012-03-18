@@ -6,62 +6,46 @@ namespace DotAmf.Data
     /// <summary>
     /// AMF object.
     /// </summary>
-    public class AmfObject : Dictionary<string,object>
+    [Serializable]
+    public class AmfObject : Dictionary<string, object>
+    {
+    }
+
+    /// <summary>
+    /// AMF+ object.
+    /// </summary>
+    [Serializable]
+    sealed public class AmfPlusObject : AmfObject
     {
         #region .ctor
         /// <summary>
         /// Constructor.
         /// </summary>
-        public AmfObject()
-        {}
-
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        /// <param name="properties">Object's properties map.</param>
-        public AmfObject(IDictionary<string,object> properties)
+        /// <param name="traits">Type traits.</param>
+        public AmfPlusObject(AmfTypeTraits traits)
         {
-            if (properties == null) throw new ArgumentNullException("properties");
-
-            foreach (var pair in properties)
-                this[pair.Key] = pair.Value;
+            if (traits == null) throw new ArgumentNullException("traits");
+            Traits = traits;
         }
         #endregion
 
         /// <summary>
-        /// Replace object's properties.
-        /// </summary>
-        /// <param name="newPoperties">New properties.</param>
-        public void ReplaceProperties(Dictionary<string,object> newPoperties)
-        {
-            if (newPoperties == null) throw new ArgumentNullException("newPoperties");
-
-            Clear();
-
-            foreach (var pair in newPoperties)
-                this[pair.Key] = pair.Value;
-        }
-
-        /// <summary>
         /// Type traits.
         /// </summary>
-        public AmfTypeTraits Traits { get; set; }
+        public AmfTypeTraits Traits { get; private set; }
     }
 
     /// <summary>
-    /// Strongly-typed object.
+    /// Strongly-typed AMF object.
     /// </summary>
+    /// <remarks><c>TypedAmfObject</c> should be used only in AMF0 content.
+    /// For AMF+ context use <c>AmfPlusObject</c>.</remarks>
+    /// <see cref="AmfPlusObject"/>
+    [Serializable]
     sealed public class TypedAmfObject : AmfObject
     {
         #region .ctor
         public TypedAmfObject(string className)
-        {
-            if (string.IsNullOrEmpty(className)) throw new ArgumentException("className");
-            ClassName = className;
-        }
-
-        public TypedAmfObject(string className, Dictionary<string, object> properties)
-            : base(properties)
         {
             if (string.IsNullOrEmpty(className)) throw new ArgumentException("className");
             ClassName = className;
@@ -75,8 +59,9 @@ namespace DotAmf.Data
     }
 
     /// <summary>
-    /// AMF type's traits.
+    /// AMF+ type's traits.
     /// </summary>
+    [Serializable]
     sealed public class AmfTypeTraits
     {
         #region .ctor
@@ -85,21 +70,38 @@ namespace DotAmf.Data
         /// </summary>
         /// <param name="typeName">Fully qualified type name.</param>
         /// <param name="classMembers">A list of type members.</param>
-        public AmfTypeTraits(string typeName, IEnumerable<string> classMembers)
+        /// <param name="isDynamic">Type if dynamic.</param>
+        public AmfTypeTraits(string typeName, IEnumerable<string> classMembers, bool isDynamic = false)
         {
-            TypeName = typeName ?? string.Empty;
+            if (string.IsNullOrEmpty(typeName)) throw new ArgumentException("Invalid type name.", "typeName");
+            TypeName = typeName;
 
             if (classMembers == null) throw new ArgumentNullException("classMembers");
             ClassMembers = classMembers;
+
+            IsExternalizable = false;
+            IsDynamic = isDynamic;
         }
 
         /// <summary>
-        /// Constructs an object with no class members.
+        /// Constructs a trait object for an externizable type.
         /// </summary>
         /// <param name="typeName">Fully qualified type name.</param>
-        public AmfTypeTraits(string typeName)
+        /// <param name="isDynamic">Type if dynamic.</param>
+        public AmfTypeTraits(string typeName, bool isDynamic = false)
             : this(typeName, new List<string>())
         {
+            IsExternalizable = true;
+            IsDynamic = isDynamic;
+        }
+
+        /// <summary>
+        /// Constructs a trait object for an anonymous type.
+        /// </summary>
+        public AmfTypeTraits()
+            : this("Object", true)
+        {
+            IsExternalizable = false;
         }
         #endregion
 
@@ -117,33 +119,91 @@ namespace DotAmf.Data
         /// <summary>
         /// Type is externalizable.
         /// </summary>
-        public bool IsExternalizable { get; set; }
+        public bool IsExternalizable { get; private set; }
 
         /// <summary>
         /// Type is dynamic.
         /// </summary>
-        public bool IsDynamic { get; set; }
+        public bool IsDynamic { get; private set; }
         #endregion
     }
 
     /// <summary>
-    /// ECMA array.
+    /// AMF+ array.
     /// </summary>
-    sealed public class AmfEcmaArray : List<object>
+    /// <remarks><c>AmfPlusArray</c> should be used only in AMF+ content.
+    /// For AMF0 context use any <c>IEnumerable</c> of <c>object</c>.</remarks>
+    [Serializable]
+    sealed public class AmfPlusArray : AmfObject, IList<object>
     {
         #region .ctor
         /// <summary>
         /// Constructor.
         /// </summary>
-        public AmfEcmaArray()
+        public AmfPlusArray()
         {
-            AssociativeValues = new AmfObject();
+            _list = new List<object>();
         }
         #endregion
 
+        #region Data
         /// <summary>
-        /// Array's associative values.
+        /// Wrapped list.
         /// </summary>
-        public AmfObject AssociativeValues { get; private set; }
+        private readonly List<object> _list;
+        #endregion
+
+        #region IList implementation
+        public int IndexOf(object item)
+        {
+            return _list.IndexOf(item);
+        }
+
+        public void Insert(int index, object item)
+        {
+            _list.Insert(index, item);
+        }
+
+        public void RemoveAt(int index)
+        {
+            _list.RemoveAt(index);
+        }
+
+        public object this[int index]
+        {
+            get { return _list[index]; }
+            set { _list[index] = value; }
+        }
+
+        public void Add(object item)
+        {
+            _list.Add(item);
+        }
+
+        public bool Contains(object item)
+        {
+            return _list.Contains(item);
+        }
+
+        public void CopyTo(object[] array, int arrayIndex)
+        {
+            _list.CopyTo(array, arrayIndex);
+        }
+
+        public bool IsReadOnly
+        {
+            get { return false; }
+        }
+
+        public bool Remove(object item)
+        {
+            return _list.Remove(item);
+        }
+
+        public new IEnumerator<object> GetEnumerator()
+        {
+            return _list.GetEnumerator();
+        }
+        #endregion
     }
 }
