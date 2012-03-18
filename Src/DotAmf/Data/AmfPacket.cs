@@ -10,7 +10,7 @@ namespace DotAmf.Data
         #region .ctor
         public AmfPacket()
         {
-            Headers = new List<AmfHeader>();
+            Headers = new Dictionary<string, AmfHeader>();
             Messages = new List<AmfMessage>();
         }
         #endregion
@@ -18,7 +18,7 @@ namespace DotAmf.Data
         /// <summary>
         /// Packet headers.
         /// </summary>
-        public IList<AmfHeader> Headers { get; private set; }
+        public IDictionary<string,AmfHeader> Headers { get; private set; }
 
         /// <summary>
         /// Packet messages.

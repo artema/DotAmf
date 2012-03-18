@@ -69,8 +69,8 @@ namespace DotAmf.Serialization
                 var headerCount = (uint) packet.Headers.Count;
                 WriteHeaderCount(headerCount);
 
-                for (var i = 0; i < headerCount; i++)
-                    WriteHeader(packet.Headers[i], version);
+                foreach (var pair in packet.Headers)
+                    WriteHeader(pair.Value, version);
 
                 var messageCount = (uint)packet.Messages.Count;
                 WriteMessageCount(messageCount);

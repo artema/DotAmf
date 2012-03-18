@@ -63,7 +63,7 @@ namespace DotAmf.Serialization
                     _deserializer.ClearReferences();
 
                     var header = _deserializer.ReadHeader();
-                    packet.Headers.Add(header);
+                    packet.Headers[header.Name] = header;
                 }
 
                 //Read messages count
