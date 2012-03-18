@@ -87,8 +87,7 @@ namespace DotAmf.Data
         /// <param name="classMembers">A list of type members.</param>
         public AmfTypeTraits(string typeName, IEnumerable<string> classMembers)
         {
-            if (string.IsNullOrEmpty(typeName)) throw new ArgumentException("typeName");
-            TypeName = typeName;
+            TypeName = typeName ?? string.Empty;
 
             if (classMembers == null) throw new ArgumentNullException("classMembers");
             ClassMembers = classMembers;
