@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using DotAmf.Data;
 
 namespace DotAmf.Serialization
 {
@@ -10,17 +11,20 @@ namespace DotAmf.Serialization
     abstract public class AmfSerializerBase : IAmfSerializer
     {
         #region .ctor
-
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="writer">AMF stream writer.</param>
-        protected AmfSerializerBase(BinaryWriter writer)
+        /// <param name="initialContext">Initial AMF context.</param>
+        protected AmfSerializerBase(BinaryWriter writer, AmfVersion initialContext)
         {
             if (writer == null) throw new ArgumentNullException("writer");
             _writer = writer;
 
-            _references = new List<object>();
+            _context = initialContext;
+            InitialContext = initialContext;
+
+            _objectReferences = new List<object>();
         }
         #endregion
 
@@ -31,40 +35,133 @@ namespace DotAmf.Serialization
         private readonly BinaryWriter _writer;
 
         /// <summary>
-        /// References.
+        /// Current AMF context.
         /// </summary>
-        private readonly IList<object> _references;
+        private AmfVersion _context;
+
+        /// <summary>
+        /// Objects references.
+        /// </summary>
+        private readonly List<object> _objectReferences;
         #endregion
 
         #region Properties
         /// <summary>
+        /// Initial context.
+        /// </summary>
+        protected AmfVersion InitialContext { get; private set; }
+
+        /// <summary>
         /// Stream writer.
         /// </summary>
         protected BinaryWriter Writer { get { return _writer; } }
-
-        /// <summary>
-        /// References.
-        /// </summary>
-        protected IList<object> References { get { return _references; } }
         #endregion
 
         #region IAmfSerializer implementation
+        public event ContextSwitch ContextSwitch;
+
         public virtual void ClearReferences()
         {
-            _references.Clear();
+            _objectReferences.Clear();
         }
 
-        public abstract int WriteValue(object value);
+        public AmfVersion Context
+        {
+            protected set
+            {
+                if (value != _context)
+                {
+                    _context = value;
+                    OnContextSwitchEvent(new ContextSwitchEventArgs(value));
+                }
+                else
+                    _context = value;
+            }
+            get { return _context; }
+        }
+
+        public abstract void WriteValue(object value);
         #endregion
 
         #region Protected methods
         /// <summary>
-        /// Save object to a list of object references.
+        /// Save an object to a list of object references.
         /// </summary>
-        /// <param name="value">Object to save or <c>null</c></param>
-        protected void SaveReference(object value)
+        /// <param name="item">Object to save.</param>
+        /// <returns><c>null</c> if the item was added to the reference list,
+        /// or a position in reference list if the item has already been added.</returns>
+        protected int? SaveReference(object item)
         {
-            References.Add(value);
+            var index = _objectReferences.BinarySearch(item);
+            if (index != -1) return index;
+
+            _objectReferences.Add(item);
+            return null;
+        }
+        #endregion
+
+        #region Event invokers
+        private void OnContextSwitchEvent(ContextSwitchEventArgs e)
+        {
+            if (ContextSwitch != null) ContextSwitch(this, e);
+        }
+        #endregion
+        
+        #region Helper methods
+        /// <summary>
+        /// Check if type is a numeric type.
+        /// </summary>
+        protected static bool IsNumericType(Type type, out bool isInteger)
+        {
+            isInteger = false;
+
+            if (type == null) return false;
+
+            switch (Type.GetTypeCode(type))
+            {
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.Int32:
+                case TypeCode.Int64:
+                case TypeCode.SByte:
+                case TypeCode.UInt16:
+                case TypeCode.UInt32:
+                case TypeCode.UInt64:
+                    {
+                        isInteger = true;
+                        return true;
+                    }
+
+                case TypeCode.Decimal:
+                case TypeCode.Double:
+                case TypeCode.Single:
+                    {
+                        return true;
+                    }
+
+                case TypeCode.Object:
+                    {
+                        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                            return IsNumericType(Nullable.GetUnderlyingType(type), out isInteger);
+
+                        return false;
+                    }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Convert a <c>DateTime</c> to a UNIX timestamp in milliseconds.
+        /// </summary>
+        protected static double ConvertToTimestamp(DateTime value)
+        {
+            var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+
+            if (value.Kind != DateTimeKind.Utc)
+                origin = origin.ToLocalTime();
+
+            return (value - origin).TotalSeconds * 1000;
         }
         #endregion
     }

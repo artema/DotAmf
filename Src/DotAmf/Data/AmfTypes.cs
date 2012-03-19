@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace DotAmf.Data
 {
@@ -134,5 +135,28 @@ namespace DotAmf.Data
         /// </summary>
         public bool IsDynamic { get; private set; }
         #endregion
+    }
+
+    /// <summary>
+    /// Provides control over serialization of a type 
+    /// as it is encoded into a data stream.
+    /// </summary>
+    public interface IExternalizable
+    {
+        /// <summary>
+        /// Type name.
+        /// </summary>
+        string TypeName { get; }
+
+        /// <summary>
+        /// Decode itself from a data stream.
+        /// </summary>
+        void ReadExternal(Stream input);
+
+        /// <summary>
+        /// Encode itself for a data stream.
+        /// </summary>
+        /// <returns></returns>
+        void WriteExternal(Stream ouput);
     }
 }

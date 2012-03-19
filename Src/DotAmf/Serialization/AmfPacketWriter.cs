@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.Serialization;
+using System.Text;
 using DotAmf.Data;
 using DotAmf.IO;
 
@@ -28,7 +29,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// <c>Null</c> value.
         /// </summary>
-        private const string Null =  "null";
+        private const string Null = "null";
         #endregion
 
         #region Data
@@ -40,12 +41,12 @@ namespace DotAmf.Serialization
         /// <summary>
         /// AMF packet serializer.
         /// </summary>
-        private IAmfSerializer _packetSerializer;
+        private Amf0Serializer _packetSerializer;
 
         /// <summary>
         /// AMF data serializer.
         /// </summary>
-        private IAmfSerializer _dataSerializer;
+        private Amf0Serializer _dataSerializer;
         #endregion
 
         #region Public methods
@@ -60,23 +61,27 @@ namespace DotAmf.Serialization
 
             try
             {
-                _packetSerializer = CreateSerializer(version);
-
+                _packetSerializer = CreateSerializer(AmfVersion.Amf0);
                 _dataSerializer = version != AmfVersion.Amf0
                                       ? CreateSerializer(version)
                                       : _packetSerializer;
 
-                var headerCount = (uint) packet.Headers.Count;
+                if (version != AmfVersion.Amf0)
+                    _dataSerializer.ContextSwitch += OnContextSwitch;
+
+                WriteAmfVersion(version);
+
+                var headerCount = (ushort)packet.Headers.Count;
                 WriteHeaderCount(headerCount);
 
                 foreach (var pair in packet.Headers)
-                    WriteHeader(pair.Value, version);
+                    WriteHeader(pair.Value);
 
-                var messageCount = (uint)packet.Messages.Count;
+                var messageCount = (ushort)packet.Messages.Count;
                 WriteMessageCount(messageCount);
 
                 for (var i = 0; i < messageCount; i++)
-                    WriteMessage(packet.Messages[i], version);
+                    WriteMessage(packet.Messages[i]);
 
             }
             catch (Exception e)
@@ -85,7 +90,11 @@ namespace DotAmf.Serialization
             }
             finally
             {
+                if (version != AmfVersion.Amf0)
+                    _dataSerializer.ContextSwitch -= OnContextSwitch;
+
                 _dataSerializer.ClearReferences();
+
                 _dataSerializer = null;
                 _packetSerializer = null;
             }
@@ -97,7 +106,7 @@ namespace DotAmf.Serialization
         /// Create AMF serializer.
         /// </summary>
         /// <param name="version">AMF version.</param>
-        private IAmfSerializer CreateSerializer(AmfVersion version)
+        private Amf0Serializer CreateSerializer(AmfVersion version)
         {
             switch (version)
             {
@@ -105,7 +114,7 @@ namespace DotAmf.Serialization
                     return new Amf0Serializer(_writer);
 
                 case AmfVersion.Amf3:
-                    return new Amf3Serializer(_writer);
+                    return new Amf3Serializer(_writer, AmfVersion.Amf0);
 
                 default:
                     throw new NotSupportedException("Serializer for AMF type '" + version + "' is not implemented.");
@@ -114,79 +123,73 @@ namespace DotAmf.Serialization
         #endregion
 
         #region Write methods
-        private void WriteHeaderCount(uint count)
+        private void WriteAmfVersion(AmfVersion version)
+        {
+            _writer.Write((ushort)version);
+        }
+
+        private void WriteHeaderCount(ushort count)
         {
             _writer.Write(count);
         }
 
-        private void WriteMessageCount(uint count)
+        private void WriteMessageCount(ushort count)
         {
             _writer.Write(count);
         }
 
-        private void WriteHeader(AmfHeader header, AmfVersion version)
+        private void WriteHeader(AmfHeader header)
         {
             _dataSerializer.ClearReferences();
 
             //Write header metadata
-            _packetSerializer.WriteValue(header.Name);
+            WriteUtfShort(header.Name);
+            _writer.Write((byte)(header.MustUnderstand ? 0 : 1));
             _packetSerializer.WriteValue(header.MustUnderstand);
 
             //Write header length
             _writer.Write(-1);
-            
-            var contentLength = WriteValue(header.Data, version);
 
-            if(_writer.BaseStream.CanSeek)
-            {
-                _writer.Seek(-1 * (contentLength + 1), SeekOrigin.Current);
-                _writer.Write(contentLength);
-                _writer.Seek(0, SeekOrigin.Current);
-            }
+            _dataSerializer.WriteValue(header.Data);
         }
 
-        private void WriteMessage(AmfMessage message, AmfVersion version)
+        private void WriteMessage(AmfMessage message)
         {
             _dataSerializer.ClearReferences();
 
             //Write message metadata
-            _packetSerializer.WriteValue(message.Target ?? Null);
-            _packetSerializer.WriteValue(message.Response ?? Null);
+            WriteUtfShort(message.Target ?? Null);
+            WriteUtfShort(message.Response ?? Null);
 
             //Write message length
             _writer.Write(-1);
 
-            var contentLength = WriteValue(message.Data, version);
-
-            if (_writer.BaseStream.CanSeek)
-            {
-                _writer.Seek(-1 * (contentLength + 1), SeekOrigin.Current);
-                _writer.Write(contentLength);
-                _writer.Seek(0, SeekOrigin.Current);
-            }
+            _dataSerializer.WriteValue(message.Data);
         }
 
-        private int WriteValue(object value, AmfVersion version)
+        private void WriteUtfShort(string text)
         {
-            int length = 0;
+            var data = Encoding.UTF8.GetBytes(text);
+            _writer.Write((ushort)data.Length);
+            _writer.Write(data);
+        }
 
-            //Write AMF+ marker);
-            if (version == AmfVersion.Amf3)
-            {
-                _writer.Write((byte) Amf0TypeMarker.AvmPlusObject);
-                length += 1;
-            }
+        /// <summary>
+        /// Context switch event handler.
+        /// </summary>
+        private void OnContextSwitch(object sender, ContextSwitchEventArgs e)
+        {
+            _dataSerializer.ClearReferences();
 
-            //Write value
-            length += _dataSerializer.WriteValue(value);
-
-            return length;
+            if(e.ContextVersion != AmfVersion.Amf0)
+                _dataSerializer.Write(Amf0TypeMarker.AvmPlusObject);
         }
         #endregion
 
         #region IDispose implementation
         public void Dispose()
         {
+            _writer.Flush();
             _writer.Dispose();
             _packetSerializer = null;
             _dataSerializer = null;

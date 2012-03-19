@@ -1,4 +1,7 @@
-﻿namespace DotAmf.Serialization
+﻿using System.Runtime.Serialization;
+using DotAmf.Data;
+
+namespace DotAmf.Serialization
 {
     /// <summary>
     /// AMF serializer.
@@ -9,12 +12,22 @@
         /// Write a value.
         /// </summary>
         /// <param name="value">Value to write.</param>
-        /// <returns>Number of bytes written.</returns>
-        int WriteValue(object value);
+        /// <exception cref="SerializationException">Error during serialization.</exception>
+        void WriteValue(object value);
 
         /// <summary>
         /// Clear stored references.
         /// </summary>
         void ClearReferences();
+
+        /// <summary>
+        /// AMF context switch event.
+        /// </summary>
+        event ContextSwitch ContextSwitch;
+
+        /// <summary>
+        /// Current AMF context.
+        /// </summary>
+        AmfVersion Context { get; }
     }
 }
