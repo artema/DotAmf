@@ -29,49 +29,11 @@ namespace DotAmf.Data
         }
 
         /// <summary>
-        /// Constructs a dynamic object.
+        /// Constructs an anonymous object.
         /// </summary>
         public AmfPlusObject()
+            : this(new AmfTypeTraits())
         {
-            _dynamicMembers = new HashSet<string>();
-        }
-        #endregion
-
-        #region Dynamic object
-        /// <summary>
-        /// Dynamic object's members.
-        /// </summary>
-        private readonly HashSet<string> _dynamicMembers = null;
-
-        public new void Clear()
-        {
-            if (_dynamicMembers != null)
-                _dynamicMembers.Clear();
-
-            base.Clear();
-        }
-
-        public new bool Remove(string key)
-        {
-            if (_dynamicMembers != null)
-                _dynamicMembers.Remove(key);
-
-            return base.Remove(key);
-        }
-
-        public new object this[string key]
-        {
-            set
-            {
-                if (_dynamicMembers != null)
-                {
-                    if(!_dynamicMembers.Contains(key))
-                        _dynamicMembers.Add(key);
-                }
-
-                base[key] = value;
-            }
-            get { return base[key]; }
         }
         #endregion
 
