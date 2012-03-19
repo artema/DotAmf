@@ -153,7 +153,7 @@ namespace DotAmf.Serialization
         private string ReadLongString()
         {
             //First 32 bits represents long string's (UTF-8-long) length in bytes
-            var length = Reader.ReadInt32();
+            var length = Reader.ReadUInt32();
             return ReadString(length);
         }
 
@@ -161,17 +161,15 @@ namespace DotAmf.Serialization
         /// Read a specified number of bytes of a string.
         /// </summary>
         /// <param name="length">Number of bytes to read.</param>
-        private string ReadString(int length)
+        private string ReadString(uint length)
         {
-            if (length < 0) throw new ArgumentException("Length cannot be negative.", "length");
-
             //Make sure that a null is never returned
             if (length == 0) return string.Empty;
 
-            var data = Reader.ReadBytes(length);
-
-            //All strings are encoded in UTF-8
-            return new UTF8Encoding().GetString(data);
+            var data = Reader.ReadBytes((int)length);
+            
+            //All strings are encoded in UTF-8)
+            return Encoding.UTF8.GetString(data);
         }
 
         /// <summary>
