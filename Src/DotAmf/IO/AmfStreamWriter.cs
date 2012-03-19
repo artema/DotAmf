@@ -23,7 +23,7 @@ namespace DotAmf.IO
 
         #region Data
         /// <summary>
-        /// Bytes order on this architecture is little-endian.
+        /// Delegate to use for preparing bytes before writing.
         /// </summary>
         /// <remarks>
         /// AMF messages have a big endian (network) byte order.
@@ -34,6 +34,10 @@ namespace DotAmf.IO
         #endregion
 
         #region Public methods
+        public override void Write(byte value) { base.Write(value); }
+
+        public override void Write(sbyte value) { throw new NotSupportedException(); }
+
         public override void Write(short value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
 
         public override void Write(ushort value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
@@ -42,13 +46,17 @@ namespace DotAmf.IO
 
         public override void Write(uint value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
 
+        public override void Write(long value) { throw new NotSupportedException(); }
+
+        public override void Write(ulong value) { throw new NotSupportedException(); }
+
+        public override void Write(float value) { throw new NotSupportedException(); }
+
         public override void Write(decimal value) { throw new NotSupportedException(); }
 
         public override void Write(double value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
 
-        public override void Write(long value) { throw new NotSupportedException(); }
-
-        public override void Write(ulong value) { throw new NotSupportedException(); }
+        public override void Write(string value) { throw new NotSupportedException(); }
         #endregion
     }
 }

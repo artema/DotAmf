@@ -23,7 +23,7 @@ namespace DotAmf.IO
 
         #region Data
         /// <summary>
-        /// Bytes order on this architecture is little-endian.
+        /// Delegate to use for preparing bytes before reading.
         /// </summary>
         /// <remarks>
         /// AMF messages have a big endian (network) byte order.
@@ -51,6 +51,8 @@ namespace DotAmf.IO
         public override ulong ReadUInt64() { throw new NotSupportedException(); }
 
         public override float ReadSingle() { throw new NotSupportedException(); }
+
+        public override decimal ReadDecimal() { throw new NotSupportedException(); }
 
         public override double ReadDouble() { return BitConverter.ToDouble(PrepareBytes(ReadBytes(8)), 0); }
 
