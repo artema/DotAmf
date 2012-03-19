@@ -27,6 +27,52 @@ namespace DotAmf.Data
             if (traits == null) throw new ArgumentNullException("traits");
             Traits = traits;
         }
+
+        /// <summary>
+        /// Constructs a dynamic object.
+        /// </summary>
+        public AmfPlusObject()
+        {
+            _dynamicMembers = new HashSet<string>();
+        }
+        #endregion
+
+        #region Dynamic object
+        /// <summary>
+        /// Dynamic object's members.
+        /// </summary>
+        private readonly HashSet<string> _dynamicMembers = null;
+
+        public new void Clear()
+        {
+            if (_dynamicMembers != null)
+                _dynamicMembers.Clear();
+
+            base.Clear();
+        }
+
+        public new bool Remove(string key)
+        {
+            if (_dynamicMembers != null)
+                _dynamicMembers.Remove(key);
+
+            return base.Remove(key);
+        }
+
+        public new object this[string key]
+        {
+            set
+            {
+                if (_dynamicMembers != null)
+                {
+                    if(!_dynamicMembers.Contains(key))
+                        _dynamicMembers.Add(key);
+                }
+
+                base[key] = value;
+            }
+            get { return base[key]; }
+        }
         #endregion
 
         /// <summary>
@@ -73,7 +119,7 @@ namespace DotAmf.Data
         /// <param name="isDynamic">Type if dynamic.</param>
         public AmfTypeTraits(string typeName, IEnumerable<string> classMembers, bool isDynamic = false)
         {
-            if (string.IsNullOrEmpty(typeName)) throw new ArgumentException("Invalid type name.", "typeName");
+            if (typeName == null) throw new ArgumentException("Invalid type name.", "typeName");
             TypeName = typeName;
 
             if (classMembers == null) throw new ArgumentNullException("classMembers");
@@ -99,7 +145,7 @@ namespace DotAmf.Data
         /// Constructs a trait object for an anonymous type.
         /// </summary>
         public AmfTypeTraits()
-            : this("Object", true)
+            : this(string.Empty, true)
         {
             IsExternalizable = false;
         }
