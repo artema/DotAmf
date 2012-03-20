@@ -280,14 +280,14 @@ namespace DotAmf.Serialization
         /// <c>class-name = UTF-8
         /// object-type = object-marker class-name *(object-property)</c>
         /// </remarks>
-        private TypedAmfObject ReadTypedObject()
+        private AmfObject ReadTypedObject()
         {
-            TypedAmfObject result;
+            AmfObject result;
 
             try
             {
-                var className = ReadString();
-                result = new TypedAmfObject(className);
+                var typeName = ReadString();
+                result = new AmfObject(typeName);
             }
             finally
             {

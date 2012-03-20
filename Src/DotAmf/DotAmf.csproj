@@ -47,6 +47,11 @@
     <Compile Include="Data\AmfPacket.cs" />
     <Compile Include="Data\AmfVersion.cs" />
     <Compile Include="Data\AmfMessage.cs" />
+    <Compile Include="Errors.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Errors.resx</DependentUpon>
+    </Compile>
     <Compile Include="IO\AmfStreamWriter.cs" />
     <Compile Include="IO\AmfStreamReader.cs" />
     <Compile Include="IO\ByteConverter.cs" />
@@ -64,7 +69,12 @@
     <Compile Include="Serialization\IAmfSerializer.cs" />
     <Compile Include="Serialization\IAmfDeserializer.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="Errors.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Errors.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

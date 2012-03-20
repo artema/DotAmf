@@ -124,7 +124,7 @@ namespace DotAmf.Serialization
                 PerformWrite(() => WritePrimitive(value));
                 return;
             }
-            
+
             //An array
             if (type.IsArray)
             {
@@ -147,20 +147,20 @@ namespace DotAmf.Serialization
             }
 
             //An externizable object
-            if(type.IsClass && type.GetInterfaces().Contains(typeof(IExternalizable)))
+            if (type.IsClass && type.GetInterfaces().Contains(typeof(IExternalizable)))
             {
                 PerformWrite(() => Write((IExternalizable)value));
                 return;
             }
 
             //Check for context violations
-            if(IsBaseContextType(type))
+            if (IsBaseContextType(type))
                 throw new SerializationException(
-                    "Unable to serialize the type within current AMF version context: " 
+                    "Unable to serialize the type within current AMF version context: "
                     + type.FullName);
 
             throw new SerializationException(
-                "Unable to serialize the type: " 
+                "Unable to serialize the type: "
                 + type.FullName);
         }
         #endregion
@@ -258,7 +258,7 @@ namespace DotAmf.Serialization
                     var integer = UInt29Mask & (int)intval; //Truncate the value
 
                     Write(Amf3TypeMarker.Integer);
-                    WriteUInt29(integer); 
+                    WriteUInt29(integer);
                 }
                 //Promote the value to a double
                 else
@@ -305,7 +305,7 @@ namespace DotAmf.Serialization
                 return;
             }
 
-            var array = (object[]) value;
+            var array = (object[])value;
 
             //The first bit is a flag with value 1.
             //The remaining 1 to 28 significant bits 
@@ -512,9 +512,10 @@ namespace DotAmf.Serialization
 
             //Dynamic types may have a set of name value pairs
             //for dynamic members after the sealed member section.
-            if(obj.Traits.IsDynamic)
+            if (obj.Traits.IsDynamic)
             {
-                var dynamicMembers = obj.Keys.Except(obj.Traits.ClassMembers);
+                var dynamicMembers = (from pair in obj select pair.Key)
+                                     .Except(obj.Traits.ClassMembers);
 
                 foreach (var member in dynamicMembers)
                 {
@@ -541,7 +542,7 @@ namespace DotAmf.Serialization
 
             byte[] data;
 
-            using(var stream = new MemoryStream())
+            using (var stream = new MemoryStream())
             {
                 obj.WriteExternal(stream);
                 data = stream.ToArray();
@@ -557,7 +558,7 @@ namespace DotAmf.Serialization
         /// </summary>
         static private bool IsBaseContextType(Type type)
         {
-            return (type == typeof (AmfObject) || type == typeof (TypedAmfObject));
+            return (type == typeof(AmfObject) && type != typeof(AmfPlusObject));
         }
 
         /// <summary>
@@ -595,7 +596,7 @@ namespace DotAmf.Serialization
         /// to rollback the context to its previous state.</returns>
         private Action SwitchAmfVersion()
         {
-            if (CurrentAmfVersion == AmfVersion.Amf3) 
+            if (CurrentAmfVersion == AmfVersion.Amf3)
                 return _mockRollbackAction;
 
             CurrentAmfVersion = AmfVersion.Amf3;
