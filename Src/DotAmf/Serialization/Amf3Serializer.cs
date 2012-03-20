@@ -14,18 +14,13 @@ namespace DotAmf.Serialization
     public class Amf3Serializer : Amf0Serializer
     {
         #region .ctor
-        public Amf3Serializer(BinaryWriter writer, AmfVersion initialContext)
-            : base(writer, initialContext)
+        public Amf3Serializer(BinaryWriter writer, AmfSerializationContext context)
+            : base(writer, context)
         {
-            _rollbackAction = () => Context = initialContext;
+            _rollbackAction = () => CurrentAmfVersion = context.AmfVersion;
 
             _stringReferences = new List<string>();
             _traitReferences = new List<AmfTypeTraits>();
-        }
-
-        public Amf3Serializer(BinaryWriter writer)
-            : this(writer, AmfVersion.Amf3)
-        {
         }
         #endregion
 
@@ -117,7 +112,7 @@ namespace DotAmf.Serialization
                 type = Nullable.GetUnderlyingType(type);
 
             //Check for types from base context
-            if (Context != AmfVersion.Amf3 && IsBaseContextType(type))
+            if (CurrentAmfVersion != AmfVersion.Amf3 && IsBaseContextType(type))
             {
                 base.WriteValue(value);
                 return;
@@ -571,7 +566,7 @@ namespace DotAmf.Serialization
         private void PerformWrite(Action writeAction)
         {
             //Perform a context switch
-            var rollback = SwitchContext();
+            var rollback = SwitchAmfVersion();
 
             try
             {
@@ -594,16 +589,16 @@ namespace DotAmf.Serialization
         private readonly Action _rollbackAction;
 
         /// <summary>
-        /// Switch to new AMF+ context.
+        /// Switch to new AMF+ version.
         /// </summary>
         /// <returns>An action that can be executed 
         /// to rollback the context to its previous state.</returns>
-        private Action SwitchContext()
+        private Action SwitchAmfVersion()
         {
-            if (Context == AmfVersion.Amf3) 
+            if (CurrentAmfVersion == AmfVersion.Amf3) 
                 return _mockRollbackAction;
 
-            Context = AmfVersion.Amf3;
+            CurrentAmfVersion = AmfVersion.Amf3;
             return _rollbackAction;
         }
         #endregion

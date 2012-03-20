@@ -1,5 +1,4 @@
 ﻿using System;
-using DotAmf.Data;
 
 namespace DotAmf.Serialization
 {
@@ -8,15 +7,15 @@ namespace DotAmf.Serialization
     /// </summary>
     sealed public class ContextSwitchEventArgs : EventArgs
     {
-        public ContextSwitchEventArgs(AmfVersion contextVersion)
+        public ContextSwitchEventArgs(AmfSerializationContext context)
         {
-            ContextVersion = contextVersion;
+            Context = context;
         }
 
         /// <summary>
-        /// AMF version to switch to.
+        /// New AMF context.
         /// </summary>
-        public AmfVersion ContextVersion { get; private set; }
+        public AmfSerializationContext Context { get; private set; }
     }
 
     /// <summary>

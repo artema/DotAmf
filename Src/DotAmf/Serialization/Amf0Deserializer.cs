@@ -14,13 +14,8 @@ namespace DotAmf.Serialization
     public class Amf0Deserializer : AmfDeserializerBase
     {
         #region .ctor
-        public Amf0Deserializer(BinaryReader reader, AmfVersion initialContext)
-            : base(reader, initialContext)
-        {
-        }
-
-        public Amf0Deserializer(BinaryReader reader)
-            : this(reader, AmfVersion.Amf0)
+        public Amf0Deserializer(BinaryReader reader, AmfSerializationContext context)
+            : base(reader, context)
         {
         }
         #endregion
@@ -28,8 +23,8 @@ namespace DotAmf.Serialization
         #region IAmfDeserializer implementation
         public override object ReadValue()
         {
-            if(Context != AmfVersion.Amf0)
-                throw new InvalidOperationException("Invalid AMF context: " + Context);
+            if(CurrentAmfVersion != AmfVersion.Amf0)
+                throw new InvalidOperationException("Invalid AMF version: " + CurrentAmfVersion);
 
             Amf0TypeMarker type;
 
@@ -381,9 +376,9 @@ namespace DotAmf.Serialization
         /// </summary>
         private object ReadAmvPlusValue()
         {
-            //Set new context only for the next value, then switch back
-            var oldContext = Context;
-            Context = AmfVersion.Amf3;
+            //Set new AMF version only for the next value, then switch back
+            var oldVersion = CurrentAmfVersion;
+            CurrentAmfVersion = AmfVersion.Amf3;
 
             try
             {
@@ -391,7 +386,7 @@ namespace DotAmf.Serialization
             }
             finally
             {
-                Context = oldContext;
+                CurrentAmfVersion = oldVersion;
             }
         }
         #endregion

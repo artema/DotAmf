@@ -14,16 +14,11 @@ namespace DotAmf.Serialization
     public class Amf3Deserializer : Amf0Deserializer
     {
         #region .ctor
-        public Amf3Deserializer(BinaryReader reader, AmfVersion initialContext)
-            : base(reader, initialContext)
+        public Amf3Deserializer(BinaryReader reader, AmfSerializationContext context)
+            : base(reader, context)
         {
             _stringReferences = new List<string>();
             _traitReferences = new List<AmfTypeTraits>();
-        }
-
-        public Amf3Deserializer(BinaryReader reader)
-            : this(reader, AmfVersion.Amf3)
-        {
         }
         #endregion
 
@@ -98,7 +93,7 @@ namespace DotAmf.Serialization
         override public object ReadValue()
         {
             //Work in a legacy context
-            if (Context == AmfVersion.Amf0)
+            if (CurrentAmfVersion == AmfVersion.Amf0)
                 return base.ReadValue();
 
             Amf3TypeMarker type;

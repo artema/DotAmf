@@ -159,16 +159,22 @@ namespace DotAmf.Serialization
         /// <param name="version">AMF version.</param>
         private Amf0Deserializer CreateDeserializer(AmfVersion version)
         {
+            var context = new AmfSerializationContext
+                              {
+                                  AmfVersion = version
+                              };
+
             switch (version)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Deserializer(_reader);
+                    return new Amf0Deserializer(_reader, context);
 
                 //By default, all AMF packets are encoded in AMF0.
                 //A type marker 0x11 is used to temporary switch
                 //to AMF3 context for the next encoded value.
                 case AmfVersion.Amf3:
-                    return new Amf3Deserializer(_reader, AmfVersion.Amf0);
+                    context.AmfVersion = AmfVersion.Amf0;
+                    return new Amf3Deserializer(_reader, context);
 
                 default:
                     throw new NotSupportedException("Deserializer for AMF type '" + version + "' is not implemented.");

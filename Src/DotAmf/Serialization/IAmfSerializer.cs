@@ -21,13 +21,13 @@ namespace DotAmf.Serialization
         void ClearReferences();
 
         /// <summary>
-        /// AMF context switch event.
+        /// AMF serialization context switch event.
         /// </summary>
         event ContextSwitch ContextSwitch;
 
         /// <summary>
-        /// Current AMF context.
+        /// Current AMF serialization context.
         /// </summary>
-        AmfVersion Context { get; }
+        AmfSerializationContext Context { get; }
     }
 }

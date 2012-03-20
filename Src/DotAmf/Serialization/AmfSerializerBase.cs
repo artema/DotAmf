@@ -15,14 +15,13 @@ namespace DotAmf.Serialization
         /// Constructor.
         /// </summary>
         /// <param name="writer">AMF stream writer.</param>
-        /// <param name="initialContext">Initial AMF context.</param>
-        protected AmfSerializerBase(BinaryWriter writer, AmfVersion initialContext)
+        /// <param name="context">AMF serialization context.</param>
+        protected AmfSerializerBase(BinaryWriter writer, AmfSerializationContext context)
         {
             if (writer == null) throw new ArgumentNullException("writer");
             _writer = writer;
 
-            _context = initialContext;
-            InitialContext = initialContext;
+            _context = context;
 
             _objectReferences = new List<object>();
         }
@@ -35,9 +34,9 @@ namespace DotAmf.Serialization
         private readonly BinaryWriter _writer;
 
         /// <summary>
-        /// Current AMF context.
+        /// AMF serialization context.
         /// </summary>
-        private AmfVersion _context;
+        private AmfSerializationContext _context;
 
         /// <summary>
         /// Objects references.
@@ -46,11 +45,6 @@ namespace DotAmf.Serialization
         #endregion
 
         #region Properties
-        /// <summary>
-        /// Initial context.
-        /// </summary>
-        protected AmfVersion InitialContext { get; private set; }
-
         /// <summary>
         /// Stream writer.
         /// </summary>
@@ -65,20 +59,7 @@ namespace DotAmf.Serialization
             _objectReferences.Clear();
         }
 
-        public AmfVersion Context
-        {
-            protected set
-            {
-                if (value != _context)
-                {
-                    _context = value;
-                    OnContextSwitchEvent(new ContextSwitchEventArgs(value));
-                }
-                else
-                    _context = value;
-            }
-            get { return _context; }
-        }
+        public AmfSerializationContext Context { get { return _context; } }
 
         public abstract void WriteValue(object value);
         #endregion
@@ -97,6 +78,21 @@ namespace DotAmf.Serialization
 
             _objectReferences.Add(item);
             return null;
+        }
+
+        /// <summary>
+        /// Gets or sets current AMF version.
+        /// </summary>
+        protected AmfVersion CurrentAmfVersion
+        {
+            get { return _context.AmfVersion; }
+            set
+            {
+                if (_context.AmfVersion == value) return;
+
+                _context.AmfVersion = value;
+                OnContextSwitchEvent(new ContextSwitchEventArgs(_context));
+            }
         }
         #endregion
 

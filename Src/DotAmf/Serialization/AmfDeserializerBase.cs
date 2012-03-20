@@ -15,13 +15,13 @@ namespace DotAmf.Serialization
         /// Constructor.
         /// </summary>
         /// <param name="reader">AMF stream reader.</param>
-        /// <param name="initialContext">Initial AMF context.</param>
-        protected AmfDeserializerBase(BinaryReader reader, AmfVersion initialContext)
+        /// <param name="context">AMF serialization context.</param>
+        protected AmfDeserializerBase(BinaryReader reader, AmfSerializationContext context)
         {
             if (reader == null) throw new ArgumentNullException("reader");
             _reader = reader;
 
-            _context = initialContext;
+            _context = context;
 
             _references = new List<object>();
         }
@@ -39,9 +39,9 @@ namespace DotAmf.Serialization
         private readonly IList<object> _references;
 
         /// <summary>
-        /// Current AMF context.
+        /// AMF serialization context.
         /// </summary>
-        private AmfVersion _context;
+        private AmfSerializationContext _context;
         #endregion
 
         #region Properties
@@ -66,20 +66,7 @@ namespace DotAmf.Serialization
             _references.Clear();
         }
 
-        public AmfVersion Context
-        {
-            protected set
-            {
-                if (value != _context)
-                {
-                    _context = value;
-                    OnContextSwitchEvent(new ContextSwitchEventArgs(value));
-                }
-                else
-                    _context = value;
-            }
-            get { return _context; }
-        }
+        public AmfSerializationContext Context { get { return _context; } }
         #endregion
 
         #region Protected methods
@@ -90,6 +77,21 @@ namespace DotAmf.Serialization
         protected void SaveReference(object value)
         {
             References.Add(value);
+        }
+
+        /// <summary>
+        /// Gets or sets current AMF version.
+        /// </summary>
+        protected AmfVersion CurrentAmfVersion
+        {
+            get { return _context.AmfVersion; }
+            set
+            {
+                if(_context.AmfVersion == value) return;
+                
+                _context.AmfVersion = value;
+                OnContextSwitchEvent(new ContextSwitchEventArgs(_context));
+            }
         }
         #endregion
 

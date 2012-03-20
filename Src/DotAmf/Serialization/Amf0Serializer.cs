@@ -12,13 +12,8 @@ namespace DotAmf.Serialization
     public class Amf0Serializer : AmfSerializerBase
     {
         #region .ctor
-        public Amf0Serializer(BinaryWriter writer, AmfVersion initialContext)
-            : base(writer, initialContext)
-        {
-        }
-
-        public Amf0Serializer(BinaryWriter writer)
-            : this(writer, AmfVersion.Amf0)
+        public Amf0Serializer(BinaryWriter writer, AmfSerializationContext context)
+            : base(writer, context)
         {
         }
         #endregion

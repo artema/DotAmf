@@ -108,13 +108,20 @@ namespace DotAmf.Serialization
         /// <param name="version">AMF version.</param>
         private Amf0Serializer CreateSerializer(AmfVersion version)
         {
+            var context = new AmfSerializationContext
+                              {
+                                  AmfVersion = version
+                              };
+
             switch (version)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Serializer(_writer);
+                    return new Amf0Serializer(_writer, context);
 
+                //By default, all AMF packets are encoded in AMF0.
                 case AmfVersion.Amf3:
-                    return new Amf3Serializer(_writer, AmfVersion.Amf0);
+                    context.AmfVersion = AmfVersion.Amf0;
+                    return new Amf3Serializer(_writer, context);
 
                 default:
                     throw new NotSupportedException("Serializer for AMF type '" + version + "' is not implemented.");
@@ -181,7 +188,7 @@ namespace DotAmf.Serialization
         {
             _dataSerializer.ClearReferences();
 
-            if(e.ContextVersion != AmfVersion.Amf0)
+            if(e.Context.AmfVersion != AmfVersion.Amf0)
                 _dataSerializer.Write(Amf0TypeMarker.AvmPlusObject);
         }
         #endregion
