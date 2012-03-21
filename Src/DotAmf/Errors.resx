@@ -123,4 +123,13 @@
   <data name="SettingPropertyOnExternizableType" xml:space="preserve">
     <value>Setting properties on externizable objects is not allowed.</value>
   </data>
+	<data name="AmfContractResolver_InvalidAliasName">
+		<value xml:space="preserve">Invalid alias name.</value>
+	</data>
+	<data name="AmfContractResolver_AliasCollision">
+		<value><![CDATA[Alias '{0}' is already taken by another type.]]></value>
+	</data>
+	<data name="AmfContractResolver_TypeRegistrationError">
+		<value xml:space="preserve">Unable to register type.</value>
+	</data>
 </root>

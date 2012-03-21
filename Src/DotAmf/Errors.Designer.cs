@@ -61,6 +61,33 @@ namespace DotAmf {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Alias &apos;{0}&apos; is already taken by another type..
+        /// </summary>
+        internal static string AmfContractResolver_AliasCollision {
+            get {
+                return ResourceManager.GetString("AmfContractResolver_AliasCollision", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid alias name..
+        /// </summary>
+        internal static string AmfContractResolver_InvalidAliasName {
+            get {
+                return ResourceManager.GetString("AmfContractResolver_InvalidAliasName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to register type..
+        /// </summary>
+        internal static string AmfContractResolver_TypeRegistrationError {
+            get {
+                return ResourceManager.GetString("AmfContractResolver_TypeRegistrationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to set undefined property {0} on not dynamic object..
         /// </summary>
         internal static string SettingMissingProperty {

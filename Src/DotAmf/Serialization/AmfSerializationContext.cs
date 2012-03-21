@@ -11,5 +11,10 @@ namespace DotAmf.Serialization
         /// AMF version.
         /// </summary>
         public AmfVersion AmfVersion;
+
+        /// <summary>
+        /// AMF data contract resolver.
+        /// </summary>
+        public IAmfContractResolver ContractResolver;
     }
 }
