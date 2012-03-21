@@ -17,11 +17,13 @@ namespace DotAmf.Serialization
         /// Constructor.
         /// </summary>
         /// <param name="stream">AMF output stream.</param>
-        public AmfPacketWriter(Stream stream)
+        /// <param name="context">Serialization context.</param>
+        public AmfPacketWriter(Stream stream, AmfSerializationContext context)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
             _writer = new AmfStreamWriter(stream);
+            _baseContext = context;
         }
         #endregion
 
@@ -37,6 +39,11 @@ namespace DotAmf.Serialization
         /// Stream writer.
         /// </summary>
         private readonly BinaryWriter _writer;
+
+        /// <summary>
+        /// Base serialization context.
+        /// </summary>
+        private readonly AmfSerializationContext _baseContext;
 
         /// <summary>
         /// AMF packet serializer.
@@ -108,10 +115,8 @@ namespace DotAmf.Serialization
         /// <param name="version">AMF version.</param>
         private Amf0Serializer CreateSerializer(AmfVersion version)
         {
-            var context = new AmfSerializationContext
-                              {
-                                  AmfVersion = version
-                              };
+            var context = _baseContext;
+            context.AmfVersion = version;
 
             switch (version)
             {

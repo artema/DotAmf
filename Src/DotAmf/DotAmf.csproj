@@ -69,6 +69,7 @@
     <Compile Include="Serialization\AmfPacketWriter.cs" />
     <Compile Include="Serialization\IAmfSerializer.cs" />
     <Compile Include="Serialization\IAmfDeserializer.cs" />
+    <Compile Include="Serialization\TypeUtil.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Errors.resx">

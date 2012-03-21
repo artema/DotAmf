@@ -12,15 +12,18 @@ namespace DotAmf.Serialization
     sealed public class AmfPacketReader : IDisposable
     {
         #region .ctor
+
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="stream">AMF input stream.</param>
-        public AmfPacketReader(Stream stream)
+        /// <param name="context">Deserialization context.</param>
+        public AmfPacketReader(Stream stream, AmfSerializationContext context)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
             _reader = new AmfStreamReader(stream);
+            _baseContext = context;
         }
         #endregion
 
@@ -29,6 +32,11 @@ namespace DotAmf.Serialization
         /// Stream reader.
         /// </summary>
         private readonly BinaryReader _reader;
+
+        /// <summary>
+        /// Base serialization context.
+        /// </summary>
+        private readonly AmfSerializationContext _baseContext;
 
         /// <summary>
         /// Current AMF deserializer.
@@ -159,10 +167,8 @@ namespace DotAmf.Serialization
         /// <param name="version">AMF version.</param>
         private Amf0Deserializer CreateDeserializer(AmfVersion version)
         {
-            var context = new AmfSerializationContext
-                              {
-                                  AmfVersion = version
-                              };
+            var context = _baseContext;
+            context.AmfVersion = version;
 
             switch (version)
             {

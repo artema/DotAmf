@@ -61,6 +61,24 @@ namespace DotAmf {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Error instantiating a data contract object..
+        /// </summary>
+        internal static string Amf3Deserializer_ReadObject_InstantiationError {
+            get {
+                return ResourceManager.GetString("Amf3Deserializer_ReadObject_InstantiationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Length cannot be negative..
+        /// </summary>
+        internal static string Amf3Deserializer_ReadString_NegativeLength {
+            get {
+                return ResourceManager.GetString("Amf3Deserializer_ReadString_NegativeLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Alias &apos;{0}&apos; is already taken by another type..
         /// </summary>
         internal static string AmfContractResolver_AliasCollision {

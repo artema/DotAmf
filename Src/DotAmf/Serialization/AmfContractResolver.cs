@@ -132,7 +132,7 @@ namespace DotAmf.Serialization
         #region IAmfContractResolver implementation
         public Type Resolve(string typeAlias)
         {
-            if (string.IsNullOrEmpty(typeAlias)) throw new ArgumentException();
+            if (string.IsNullOrEmpty(typeAlias) || !_registry.ContainsKey(typeAlias)) return null;
             return _registry[typeAlias];
         }
 

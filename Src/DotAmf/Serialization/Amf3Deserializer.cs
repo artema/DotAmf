@@ -243,7 +243,7 @@ namespace DotAmf.Serialization
         /// <param name="length">Number of bytes to read.</param>
         private string ReadString(int length)
         {
-            if (length < 0) throw new ArgumentException("Length cannot be negative.", "length");
+            if (length < 0) throw new ArgumentException(Errors.Amf3Deserializer_ReadString_NegativeLength, "length");
 
             //Make sure that a null is never returned
             if (length == 0) return string.Empty;
@@ -269,7 +269,7 @@ namespace DotAmf.Serialization
             int reference;
             object cache;
 
-            if ((cache = ReadReference(out reference)) != null) return (DateTime) cache;
+            if ((cache = ReadReference(out reference)) != null) return (DateTime)cache;
 
             //Dates are represented as an Unix time stamp, but in milliseconds
             var milliseconds = Reader.ReadDouble();
@@ -296,7 +296,7 @@ namespace DotAmf.Serialization
             int reference;
             object cache;
 
-            if ((cache = ReadReference(out reference)) != null) return (byte[]) cache;
+            if ((cache = ReadReference(out reference)) != null) return (byte[])cache;
 
             //Get array length
             var length = (reference >> 1);
@@ -322,7 +322,7 @@ namespace DotAmf.Serialization
             int reference;
             object cache;
 
-            if ((cache = ReadReference(out reference)) != null) return (XmlDocument) cache;
+            if ((cache = ReadReference(out reference)) != null) return (XmlDocument)cache;
 
             //Get XML string length
             var length = (reference >> 1);
@@ -403,7 +403,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Read an object.
         /// </summary>
-        private AmfPlusObject ReadObject()
+        private object ReadObject()
         {
             var reference = ReadUint29();
             AmfTypeTraits traits;
@@ -418,7 +418,7 @@ namespace DotAmf.Serialization
             {
                 var isExternalizable = ((reference & 0x4) == 4);
                 var isDynamic = ((reference & 0x8) == 8);
-                var type = ReadString();
+                var typeName = ReadString();
                 var classMembers = new List<string>();
 
                 var count = (reference >> 4);
@@ -429,19 +429,19 @@ namespace DotAmf.Serialization
                 //No property names are included for types
                 //that are externizable
                 traits = isExternalizable
-                             ? new AmfTypeTraits(type, isDynamic)
-                             : new AmfTypeTraits(type, classMembers, isDynamic);
+                             ? new AmfTypeTraits(typeName, isDynamic)
+                             : new AmfTypeTraits(typeName, classMembers, isDynamic);
 
                 SaveReference(traits);
             }
 
-            var result = new AmfPlusObject(traits);
-            
-            SaveReference(result);
+            var content = new Dictionary<string, object>();
 
+            //Read object's properties
             foreach (var classMember in traits.ClassMembers)
-                result[classMember] = ReadValue();
+                content[classMember] = ReadValue();
 
+            //Read dynamic properties too
             if (traits.IsDynamic)
             {
                 var key = ReadString();
@@ -449,10 +449,39 @@ namespace DotAmf.Serialization
                 while (key != string.Empty)
                 {
                     var value = ReadValue();
-                    result[key] = value;
+                    content[key] = value;
                     key = ReadString();
                 }
             }
+
+            //Look for a data contract registered for this object
+            var contract = Context.ContractResolver.Resolve(traits.TypeName);
+
+            //Found a data contract for this object
+            if (contract != null)
+            {
+                object instance;
+
+                try
+                {
+                    instance = TypeUtil.InstantiateObject(contract, content);
+                }
+                catch (Exception e)
+                {
+                    throw new SerializationException(Errors.Amf3Deserializer_ReadObject_InstantiationError, e);
+                }
+
+                SaveReference(instance);
+
+                return instance;
+            }
+
+            //No contract found, use a generic AMF object
+            var result = new AmfPlusObject(traits);
+            SaveReference(result);
+
+            foreach (var data in content)
+                result[data.Key] = data.Value;
 
             return result;
         }
