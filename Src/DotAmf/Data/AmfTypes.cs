@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Xml;
+using System.Xml.Schema;
+using System.Xml.Serialization;
 
 namespace DotAmf.Data
 {
@@ -10,7 +13,8 @@ namespace DotAmf.Data
     /// AMF object.
     /// </summary>
     [Serializable]
-    public class AmfObject : ISerializable, IEnumerable<KeyValuePair<string, object>>
+    [XmlRoot("AmfObject")]
+    public class AmfObject : ISerializable, IDictionary<string, object>, IXmlSerializable
     {
         #region .ctor
         /// <summary>
@@ -18,12 +22,8 @@ namespace DotAmf.Data
         /// </summary>
         /// <param name="typeName">Object's type.</param>
         public AmfObject(string typeName)
+            : this(typeName, new Dictionary<string, object>())
         {
-            if (typeName == null) throw new ArgumentNullException("typeName");
-            if (typeName == BaseTypeName) typeName = string.Empty;
-            TypeName = typeName;
-
-            _properties = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -32,6 +32,21 @@ namespace DotAmf.Data
         public AmfObject()
             : this(string.Empty)
         { }
+
+        /// <summary>
+        /// Constructs a newtyped  AMF object with provided properties collection.
+        /// </summary>
+        /// <param name="typeName">Object's type.</param>
+        /// <param name="properties">Collection to use for storing object;s properties.</param>
+        protected AmfObject(string typeName, IDictionary<string, object> properties)
+        {
+            if (typeName == null) throw new ArgumentNullException("typeName");
+            if (typeName == BaseTypeName) typeName = string.Empty;
+            TypeName = typeName;
+
+            if (properties == null) throw new ArgumentNullException("properties");
+            _properties = properties;
+        }
         #endregion
 
         #region Constants
@@ -43,6 +58,11 @@ namespace DotAmf.Data
 
         #region Properties
         /// <summary>
+        /// Object's properties.
+        /// </summary>
+        public IDictionary<string, object> Properties { get { return _properties; } }
+
+        /// <summary>
         /// Type name.
         /// </summary>
         public string TypeName { get; private set; }
@@ -52,19 +72,7 @@ namespace DotAmf.Data
         /// <summary>
         /// Object's properties.
         /// </summary>
-        private readonly Dictionary<string, object> _properties;
-        #endregion
-
-        #region ISerializable implementation
-        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            foreach (var pair in this)
-                info.AddValue(pair.Key, pair.Value);
-
-            info.FullTypeName = TypeName != string.Empty
-                ? TypeName
-                : BaseTypeName;
-        }
+        private readonly IDictionary<string, object> _properties;
         #endregion
 
         #region Indexer
@@ -72,7 +80,9 @@ namespace DotAmf.Data
         /// Get or set object's property by name.
         /// </summary>
         /// <param name="key">Property name.</param>
-        public virtual object this[string key]
+        /// <remarks>Changing this property is effectively
+        /// the same as changing the <c>Properties</c> collection.</remarks>
+        public object this[string key]
         {
             get { return _properties[key]; }
             set { _properties[key] = value; }
@@ -82,12 +92,147 @@ namespace DotAmf.Data
         #region IEnumerable implementation
         public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
         {
-            return _properties.GetEnumerator();
+            return Properties.GetEnumerator();
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+        #endregion
+
+        #region ISerializable implementation
+        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            foreach (var pair in Properties)
+                info.AddValue(pair.Key, pair.Value);
+
+            info.FullTypeName = TypeName != string.Empty
+                ? TypeName
+                : BaseTypeName;
+        }
+        #endregion
+
+        #region IXmlSerializable implementation
+        public XmlSchema GetSchema()
+        {
+            return null;
+        }
+
+        public void ReadXml(XmlReader reader)
+        {
+            var keySerializer = new XmlSerializer(typeof(string));
+            var valueSerializer = new XmlSerializer(typeof(object));
+            var wasEmpty = reader.IsEmptyElement;
+            reader.Read();
+
+            if (wasEmpty) return;
+
+            while (reader.NodeType != System.Xml.XmlNodeType.EndElement)
+            {
+                reader.ReadStartElement("item");
+                reader.ReadStartElement("key");
+
+                var key = (string)keySerializer.Deserialize(reader);
+                reader.ReadEndElement();
+                reader.ReadStartElement("value");
+
+                var value = valueSerializer.Deserialize(reader);
+                reader.ReadEndElement();
+
+                Properties.Add(key, value);
+                reader.ReadEndElement();
+                reader.MoveToContent();
+            }
+
+            reader.ReadEndElement();
+        }
+
+        public void WriteXml(XmlWriter writer)
+        {
+            var keySerializer = new XmlSerializer(typeof(string));
+            var valueSerializer = new XmlSerializer(typeof(object));
+
+            foreach (var key in Properties.Keys)
+            {
+                writer.WriteStartElement("item");
+                writer.WriteStartElement("key");
+                keySerializer.Serialize(writer, key);
+                writer.WriteEndElement();
+                writer.WriteStartElement("value");
+
+                var value = Properties[key];
+                valueSerializer.Serialize(writer, value);
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            }
+        }
+        #endregion
+
+        #region IDictionary implementation
+        public void Add(string key, object value)
+        {
+            Properties.Add(key, value);
+        }
+
+        public bool ContainsKey(string key)
+        {
+            return Properties.ContainsKey(key);
+        }
+
+        public ICollection<string> Keys
+        {
+            get { return Properties.Keys; }
+        }
+
+        public bool Remove(string key)
+        {
+            return Properties.Remove(key);
+        }
+
+        public bool TryGetValue(string key, out object value)
+        {
+            return Properties.TryGetValue(key, out value);
+        }
+
+        public ICollection<object> Values
+        {
+            get { return Properties.Values; }
+        }
+
+        public void Add(KeyValuePair<string, object> item)
+        {
+            Properties.Add(item);
+        }
+
+        public void Clear()
+        {
+            Properties.Clear();
+        }
+
+        public bool Contains(KeyValuePair<string, object> item)
+        {
+            return Properties.Contains(item);
+        }
+
+        public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex)
+        {
+            Properties.CopyTo(array, arrayIndex);
+        }
+
+        public int Count
+        {
+            get { return Properties.Count; }
+        }
+
+        public bool IsReadOnly
+        {
+            get { return Properties.IsReadOnly; }
+        }
+
+        public bool Remove(KeyValuePair<string, object> item)
+        {
+            return Properties.Remove(item);
         }
         #endregion
     }
@@ -96,6 +241,7 @@ namespace DotAmf.Data
     /// AMF+ object.
     /// </summary>
     [Serializable]
+    [XmlRoot("AmfPlusObject")]
     sealed public class AmfPlusObject : AmfObject
     {
         #region .ctor
@@ -104,7 +250,7 @@ namespace DotAmf.Data
         /// </summary>
         /// <param name="traits">Type traits.</param>
         public AmfPlusObject(AmfTypeTraits traits)
-            : base(traits.TypeName)
+            : base(traits.TypeName, BuildDictionary(traits))
         {
             if (traits == null) throw new ArgumentNullException("traits");
             Traits = traits;
@@ -126,20 +272,21 @@ namespace DotAmf.Data
         public AmfTypeTraits Traits { get; private set; }
         #endregion
 
-        #region Indexer
-        public override object this[string key]
+        #region Private methods
+        /// <summary>
+        /// Build a dictionary that will store object's properties.
+        /// </summary>
+        static private IDictionary<string, object> BuildDictionary(AmfTypeTraits traits)
         {
-            get { return base[key]; }
-            set
-            {
-                if (Traits.IsExternalizable)
-                    throw new InvalidOperationException(Errors.SettingPropertyOnExternizableType);
+            if (traits == null) throw new ArgumentNullException("traits");
 
-                if (!Traits.IsDynamic && !Traits.ClassMembers.Contains(key))
-                    throw new ArgumentException(string.Format(Errors.SettingMissingProperty, key));
+            //No need to use any constraints
+            if (traits.IsDynamic) return new Dictionary<string, object>();
 
-                base[key] = value;
-            }
+            //Externizable objects have no properties
+            if (traits.IsExternalizable) return new ConstrainedDictionary(new string[0]);
+
+            return new ConstrainedDictionary(traits.ClassMembers);
         }
         #endregion
     }
@@ -224,6 +371,7 @@ namespace DotAmf.Data
         #endregion
     }
 
+    #region IExternizable
     /// <summary>
     /// Provides control over serialization of a type 
     /// as it is encoded into a data stream.
@@ -246,4 +394,5 @@ namespace DotAmf.Data
         /// <returns></returns>
         void WriteExternal(Stream ouput);
     }
+    #endregion
 }

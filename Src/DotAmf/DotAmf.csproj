@@ -41,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Data\Amf0TypeMarker.cs" />
+    <Compile Include="Data\ConstrainedDictionary.cs" />
     <Compile Include="Serialization\AmfContractResolver.cs" />
     <Compile Include="Data\AmfTypes.cs" />
     <Compile Include="Data\Amf3TypeMarker.cs" />
@@ -69,7 +70,7 @@
     <Compile Include="Serialization\AmfPacketWriter.cs" />
     <Compile Include="Serialization\IAmfSerializer.cs" />
     <Compile Include="Serialization\IAmfDeserializer.cs" />
-    <Compile Include="Serialization\TypeUtil.cs" />
+    <Compile Include="Serialization\DataContractUtil.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Errors.resx">

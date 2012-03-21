@@ -464,7 +464,7 @@ namespace DotAmf.Serialization
 
                 try
                 {
-                    instance = TypeUtil.InstantiateObject(contract, content);
+                    instance = DataContractUtil.InstantiateContract(contract, content);
                 }
                 catch (Exception e)
                 {

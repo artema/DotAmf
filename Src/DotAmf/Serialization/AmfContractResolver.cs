@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
 
 namespace DotAmf.Serialization
 {
@@ -109,23 +108,18 @@ namespace DotAmf.Serialization
         /// otherwise returns <c>false</c>.</returns>
         private bool TryToAddType(Type type, string alias = null)
         {
-            //Look for a data contract attribute first
-            var contractAttribute =
-                    type.GetCustomAttributes(typeof(DataContractAttribute), false).FirstOrDefault() as
-                    DataContractAttribute;
-
-            if (contractAttribute != null)
+            try
             {
-                if (alias == null)
-                    alias = !string.IsNullOrEmpty(contractAttribute.Name)
-                                ? contractAttribute.Name
-                                : type.FullName ?? type.Name;
+                var defaultAlias = DataContractUtil.GetContractAlias(type);
+                _registry[alias ?? defaultAlias] = type;
 
-                _registry[alias] = type;
                 return true;
             }
-
-            return false;
+            catch
+            {
+                //Type is not a valid data contract
+                return false;
+            }
         }
         #endregion
 

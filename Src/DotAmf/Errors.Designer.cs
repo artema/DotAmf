@@ -106,20 +106,20 @@ namespace DotAmf {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Type is not a valid AMF data contract..
+        /// </summary>
+        internal static string DataContractUtil_GetContractAlias_InvalidContract {
+            get {
+                return ResourceManager.GetString("DataContractUtil_GetContractAlias_InvalidContract", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to set undefined property {0} on not dynamic object..
         /// </summary>
         internal static string SettingMissingProperty {
             get {
                 return ResourceManager.GetString("SettingMissingProperty", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Setting properties on externizable objects is not allowed..
-        /// </summary>
-        internal static string SettingPropertyOnExternizableType {
-            get {
-                return ResourceManager.GetString("SettingPropertyOnExternizableType", resourceCulture);
             }
         }
     }

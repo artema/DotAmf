@@ -120,22 +120,22 @@
   <data name="SettingMissingProperty" xml:space="preserve">
     <value>Unable to set undefined property {0} on not dynamic object.</value>
   </data>
-  <data name="SettingPropertyOnExternizableType" xml:space="preserve">
-    <value>Setting properties on externizable objects is not allowed.</value>
+  <data name="AmfContractResolver_InvalidAliasName" xml:space="preserve">
+    <value>Invalid alias name.</value>
   </data>
-	<data name="AmfContractResolver_InvalidAliasName">
-		<value xml:space="preserve">Invalid alias name.</value>
-	</data>
-	<data name="AmfContractResolver_AliasCollision">
-		<value><![CDATA[Alias '{0}' is already taken by another type.]]></value>
-	</data>
-	<data name="AmfContractResolver_TypeRegistrationError">
-		<value xml:space="preserve">Unable to register type.</value>
-	</data>
-	<data name="Amf3Deserializer_ReadString_NegativeLength">
-		<value xml:space="preserve">Length cannot be negative.</value>
-	</data>
-	<data name="Amf3Deserializer_ReadObject_InstantiationError">
-		<value xml:space="preserve">Error instantiating a data contract object.</value>
-	</data>
+  <data name="AmfContractResolver_AliasCollision" xml:space="preserve">
+    <value>Alias '{0}' is already taken by another type.</value>
+  </data>
+  <data name="AmfContractResolver_TypeRegistrationError" xml:space="preserve">
+    <value>Unable to register type.</value>
+  </data>
+  <data name="Amf3Deserializer_ReadString_NegativeLength" xml:space="preserve">
+    <value>Length cannot be negative.</value>
+  </data>
+  <data name="Amf3Deserializer_ReadObject_InstantiationError" xml:space="preserve">
+    <value>Error instantiating a data contract object.</value>
+  </data>
+  <data name="DataContractUtil_GetContractAlias_InvalidContract" xml:space="preserve">
+    <value>Type is not a valid AMF data contract.</value>
+  </data>
 </root>
