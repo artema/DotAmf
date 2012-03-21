@@ -132,7 +132,16 @@ namespace DotAmf.Serialization
                 return;
             }
 
-            //An AMF+ object
+            var typeAlias = Context.ContractResolver.GetAlias(type);
+
+            //Type has an alias, so it is a data contract object
+            if (typeAlias != null)
+            {
+                PerformWrite(() => Write(value, typeAlias));
+                return;
+            }
+
+            //An AMF+ object)
             if (type == typeof(AmfPlusObject))
             {
                 PerformWrite(() => Write((AmfPlusObject)value));
@@ -183,24 +192,24 @@ namespace DotAmf.Serialization
             //0x00000080 - 0x00003FFF
             else if (value < 0x4000)
             {
-                Writer.Write((byte)value >> 7 & 0x7F | 0x80);   //1xxxxxxx
-                Writer.Write((byte)value & 0x7F);               //xxxxxxxx
+                Writer.Write((byte)(value >> 7 & 0x7F | 0x80));   //1xxxxxxx
+                Writer.Write((byte)(value & 0x7F));               //xxxxxxxx
             }
             //< 2,097,152:
             //0x00004000 - 0x001FFFFF
             else if (value < 0x200000)
             {
-                Writer.Write((byte)value >> 14 & 0x7F | 0x80);  //1xxxxxxx
-                Writer.Write((byte)value >> 7 & 0x7F | 0x80);   //1xxxxxxx
-                Writer.Write((byte)value & 0x7F);               //xxxxxxxx
+                Writer.Write((byte)(value >> 14 & 0x7F | 0x80));  //1xxxxxxx
+                Writer.Write((byte)(value >> 7 & 0x7F | 0x80));   //1xxxxxxx
+                Writer.Write((byte)(value & 0x7F));               //xxxxxxxx
             }
             //0x00200000 - 0x3FFFFFFF
             else if (value < 0x40000000)
             {
-                Writer.Write((byte)value >> 22 & 0x7F | 0x80);  //1xxxxxxx
-                Writer.Write((byte)value >> 15 & 0x7F | 0x80);  //1xxxxxxx
-                Writer.Write((byte)value >> 8 & 0x7F | 0x80);   //1xxxxxxx
-                Writer.Write((byte)value & 0xFF);               //xxxxxxxx
+                Writer.Write((byte)(value >> 22 & 0x7F | 0x80));  //1xxxxxxx
+                Writer.Write((byte)(value >> 15 & 0x7F | 0x80));  //1xxxxxxx
+                Writer.Write((byte)(value >> 8 & 0x7F | 0x80));   //1xxxxxxx
+                Writer.Write((byte)(value & 0xFF));               //xxxxxxxx
             }
             //0x40000000 - 0xFFFFFFFF, out of range
             else
@@ -252,7 +261,7 @@ namespace DotAmf.Serialization
                 var intval = isInteger ? Convert.ToInt64(value) : 0;
 
                 //Check if the value fits the Int29 span
-                if (isInteger && intval >= MinInt29Value && intval <= MaxInt29Value)
+                if ((isInteger && intval >= MinInt29Value && intval <= MaxInt29Value) || intval == 0)
                 {
                     //It should be safe to cast it there
                     var integer = UInt29Mask & (int)intval; //Truncate the value
@@ -335,6 +344,13 @@ namespace DotAmf.Serialization
         {
             if (data == null) data = string.Empty;
 
+            //A special case
+            if(data == string.Empty)
+            {
+                Writer.Write((byte)0x01);
+                return;
+            }
+
             var decoded = data.ToCharArray();
 
             //The first bit is a flag with value 1.
@@ -392,6 +408,14 @@ namespace DotAmf.Serialization
         private void Write(string value)
         {
             Write(Amf3TypeMarker.String);
+
+            //An empty string is never send by reference
+            if(value == string.Empty)
+            {
+                WriteUtf8(value);
+                return;
+            }
+
             var reference = SaveReference(value);
 
             if (reference.HasValue)
@@ -489,9 +513,11 @@ namespace DotAmf.Serialization
                 //The third bit is a flag with value 0. 
                 var flag = 0x3; //00000011
 
+                if (obj.Traits.IsExternalizable) flag |= 0x4; //00000111
+
                 //The fourth bit is a flag specifying whether the type is dynamic.
                 //A value of 0 implies not dynamic, a value of 1 implies dynamic.
-                if (obj.Traits.IsDynamic) flag |= 0x1 << 3; //0000*011
+                if (obj.Traits.IsDynamic) flag |= 0x8; //00001011
 
                 //The remaining 1 to 25 significant bits are used to encode the number 
                 //of sealed traits member names that follow after the class name.
@@ -499,6 +525,7 @@ namespace DotAmf.Serialization
                 flag |= count << 4;
 
                 WriteUInt29(flag);
+
                 WriteUtf8(obj.Traits.TypeName);
 
                 //Write member names
@@ -523,6 +550,17 @@ namespace DotAmf.Serialization
                     WriteValue(obj[member]);
                 }
             }
+        }
+
+        /// <summary>
+        /// Write a typed object
+        /// </summary>
+        private void Write(object obj, string typeAlias)
+        {
+            var properties = DataContractUtil.GetContractProperties(obj);
+            var amfObj = new AmfPlusObject(typeAlias, properties);
+
+            Write(amfObj);
         }
 
         /// <summary>

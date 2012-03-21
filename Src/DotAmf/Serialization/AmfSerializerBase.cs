@@ -73,7 +73,7 @@ namespace DotAmf.Serialization
         /// or a position in reference list if the item has already been added.</returns>
         protected int? SaveReference(object item)
         {
-            var index = _objectReferences.BinarySearch(item);
+            var index = _objectReferences.IndexOf(item);
             if (index != -1) return index;
 
             _objectReferences.Add(item);

@@ -64,12 +64,19 @@ namespace DotAmf.Serialization
         /// </summary>
         /// <param name="instance">Object instance.</param>
         /// <returns>A set of property name-value pairs.</returns>
-        static public IEnumerable<KeyValuePair<string, object>> GetContractProperties(object instance)
+        static public IDictionary<string, object> GetContractProperties(object instance)
         {
             if (instance == null) throw new ArgumentNullException("instance");
 
-            return from data in GetContractProperties(instance.GetType())
-                   select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
+            var properties = from data in GetContractProperties(instance.GetType())
+                             select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
+
+            var map = new Dictionary<string, object>();
+
+            foreach (var pair in properties)
+                map[pair.Key] = pair.Value;
+
+            return map;
         }
 
         /// <summary>

@@ -37,8 +37,8 @@ namespace DotAmf.Data
         /// Constructs a newtyped  AMF object with provided properties collection.
         /// </summary>
         /// <param name="typeName">Object's type.</param>
-        /// <param name="properties">Collection to use for storing object;s properties.</param>
-        protected AmfObject(string typeName, IDictionary<string, object> properties)
+        /// <param name="properties">Collection to use for storing object's properties.</param>
+        public AmfObject(string typeName, IDictionary<string, object> properties)
         {
             if (typeName == null) throw new ArgumentNullException("typeName");
             if (typeName == BaseTypeName) typeName = string.Empty;
@@ -128,7 +128,7 @@ namespace DotAmf.Data
 
             if (wasEmpty) return;
 
-            while (reader.NodeType != System.Xml.XmlNodeType.EndElement)
+            while (reader.NodeType != XmlNodeType.EndElement)
             {
                 reader.ReadStartElement("item");
                 reader.ReadStartElement("key");
@@ -262,6 +262,17 @@ namespace DotAmf.Data
         public AmfPlusObject()
             : this(new AmfTypeTraits())
         {
+        }
+
+        /// <summary>
+        /// Constructs a newtyped  AMF+ object with provided properties collection.
+        /// </summary>
+        /// <param name="typeName">Object's type.</param>
+        /// <param name="properties">Properties to use.</param>
+        public AmfPlusObject(string typeName, IDictionary<string, object> properties)
+            : base(typeName, properties)
+        {
+            Traits = new AmfTypeTraits(typeName, properties.Select(pair => pair.Key));
         }
         #endregion
 
