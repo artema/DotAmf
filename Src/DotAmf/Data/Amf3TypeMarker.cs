@@ -3,7 +3,7 @@
     /// <summary>
     /// AMF3 data type marker.
     /// </summary>
-    public enum Amf3TypeMarker : byte
+    internal enum Amf3TypeMarker : byte
     {
         /// <summary>
         /// An undefined value.

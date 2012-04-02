@@ -7,7 +7,7 @@ namespace DotAmf.IO
     /// <summary>
     /// AMF stream writer.
     /// </summary>
-    sealed public class AmfStreamWriter : BinaryWriter
+    sealed internal class AmfStreamWriter : BinaryWriter
     {
         #region .ctor
         public AmfStreamWriter(Stream stream)
@@ -57,6 +57,15 @@ namespace DotAmf.IO
         public override void Write(double value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
 
         public override void Write(string value) { throw new NotSupportedException(); }
+        #endregion
+
+        #region IDisposable implementation
+        /// <summary>
+        /// Disposes writer, but leaves the underlying stream open.
+        /// </summary>
+        public new void Dispose()
+        {
+        }
         #endregion
     }
 }

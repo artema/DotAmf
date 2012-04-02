@@ -7,10 +7,29 @@ using System.Runtime.Serialization;
 namespace DotAmf.Serialization
 {
     /// <summary>
-    /// Data contract utility.
+    /// Data contract helper.
     /// </summary>
-    static internal class DataContractUtil
+    static internal class DataContractHelper
     {
+        #region Constants
+        /// <summary>
+        /// Proxy type name prefix.
+        /// </summary>
+        private const string ProxyTypePrefix = "ProxyType";
+        #endregion
+
+        #region Public methods
+        /// <summary>
+        /// Create assembly type name for a proxy type alias.
+        /// </summary>
+        /// <param name="typeAlias">Type alias.</param>
+        /// <returns>Type name, suitable for using as an assembly type name.</returns>
+        static public string CreateProxyTypeName(string typeAlias)
+        {
+            if (typeAlias == null) throw new ArgumentNullException("typeAlias");
+            return ProxyTypePrefix + typeAlias.GetHashCode();
+        }
+
         /// <summary>
         /// Get data contract type's alias.
         /// </summary>
@@ -33,7 +52,7 @@ namespace DotAmf.Serialization
                                 : type.FullName ?? type.Name;
             }
 
-            throw new ArgumentException(Errors.DataContractUtil_GetContractAlias_InvalidContract, "type");
+            throw new ArgumentException(string.Format(Errors.DataContractUtil_GetContractAlias_InvalidContract, type.FullName), "type");
         }
 
         /// <summary>
@@ -49,12 +68,19 @@ namespace DotAmf.Serialization
 
             var instance = Activator.CreateInstance(type);
 
-            var map = from data in GetContractProperties(type)
-                      join prop in properties on data.Key equals prop.Key
-                      select new { property = data.Value, value = prop.Value };
+            var propertyMap = from data in GetContractProperties(type)
+                              join prop in properties on data.Key equals prop.Key
+                              select new { property = data.Value, value = prop.Value };
 
-            foreach (var pair in map)
+            foreach (var pair in propertyMap)
                 pair.property.SetValue(instance, pair.value, null);
+
+            var fieldMap = from data in GetContractFields(type)
+                              join prop in properties on data.Key equals prop.Key
+                              select new { field = data.Value, value = prop.Value };
+
+            foreach (var pair in fieldMap)
+                pair.field.SetValue(instance, pair.value);
 
             return instance;
         }
@@ -64,23 +90,32 @@ namespace DotAmf.Serialization
         /// </summary>
         /// <param name="instance">Object instance.</param>
         /// <returns>A set of property name-value pairs.</returns>
-        static public IDictionary<string, object> GetContractProperties(object instance)
+        static public Dictionary<string, object> GetContractProperties(object instance)
         {
             if (instance == null) throw new ArgumentNullException("instance");
 
-            var properties = from data in GetContractProperties(instance.GetType())
+            var type = instance.GetType();
+
+            var properties = from data in GetContractProperties(type)
                              select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
+
+            var fields = from data in GetContractFields(type)
+                             select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance));
+
+            var contents = properties.Concat(fields);
 
             var map = new Dictionary<string, object>();
 
-            foreach (var pair in properties)
+            foreach (var pair in contents)
                 map[pair.Key] = pair.Value;
 
             return map;
         }
+        #endregion
 
+        #region Private methods
         /// <summary>
-        /// Get properties of a data contract type.
+        /// Get properties of data contract type.
         /// </summary>
         /// <param name="type">Data contract type.</param>
         /// <returns>A set of name-property pairs.</returns>
@@ -110,5 +145,38 @@ namespace DotAmf.Serialization
                 }
             }
         }
+
+        /// <summary>
+        /// Get fields of data contract type.
+        /// </summary>
+        /// <param name="type">Data contract type.</param>
+        /// <returns>A set of name-field pairs.</returns>
+        static private IEnumerable<KeyValuePair<string, FieldInfo>> GetContractFields(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+
+            var validFields = from field in type.GetFields()
+                              where field.IsPublic && !field.IsStatic
+                              select field;
+
+            foreach (var field in validFields)
+            {
+                //Look for a data contract attribute first
+                var contractAttribute =
+                    field.GetCustomAttributes(typeof(DataMemberAttribute), true).FirstOrDefault() as
+                    DataMemberAttribute;
+
+                if (contractAttribute != null)
+                {
+                    var propertyName = !string.IsNullOrEmpty(contractAttribute.Name)
+                                           ? contractAttribute.Name
+                                           : field.Name;
+
+                    yield return new KeyValuePair<string, FieldInfo>(propertyName, field);
+                    continue;
+                }
+            }
+        }
+        #endregion
     }
 }

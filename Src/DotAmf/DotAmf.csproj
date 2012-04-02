@@ -41,8 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Data\Amf0TypeMarker.cs" />
-    <Compile Include="Data\ConstrainedDictionary.cs" />
-    <Compile Include="Serialization\AmfContractResolver.cs" />
+    <Compile Include="Data\AmfEncodingOptions.cs" />
     <Compile Include="Data\AmfTypes.cs" />
     <Compile Include="Data\Amf3TypeMarker.cs" />
     <Compile Include="Data\AmfHeader.cs" />
@@ -57,27 +56,32 @@
     <Compile Include="IO\AmfStreamWriter.cs" />
     <Compile Include="IO\AmfStreamReader.cs" />
     <Compile Include="IO\ByteConverter.cs" />
-    <Compile Include="Serialization\Amf0Serializer.cs" />
-    <Compile Include="Serialization\AmfDeserializerBase.cs" />
-    <Compile Include="Serialization\AmfPacketReader.cs" />
+    <Compile Include="Encoder\Amf0Encoder.cs" />
+    <Compile Include="Serialization\AmfDataContractResolver.cs" />
+    <Compile Include="Decoder\AbstractAmfDecoder.cs" />
+    <Compile Include="Decoder\AmfPacketDecoder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Serialization\Amf0Deserializer.cs" />
-    <Compile Include="Serialization\Amf3Deserializer.cs" />
-    <Compile Include="Serialization\AmfSerializationContext.cs" />
-    <Compile Include="Serialization\ContextSwitchEvent.cs" />
-    <Compile Include="Serialization\AmfSerializerBase.cs" />
-    <Compile Include="Serialization\Amf3Serializer.cs" />
-    <Compile Include="Serialization\AmfPacketWriter.cs" />
-    <Compile Include="Serialization\IAmfSerializer.cs" />
-    <Compile Include="Serialization\IAmfDeserializer.cs" />
-    <Compile Include="Serialization\DataContractUtil.cs" />
+    <Compile Include="Decoder\Amf0Decoder.cs" />
+    <Compile Include="Decoder\Amf3Decoder.cs" />
+    <Compile Include="Data\AmfSerializationContext.cs" />
+    <Compile Include="Data\ContextSwitchEvent.cs" />
+    <Compile Include="Encoder\AbstractAmfEncoder.cs" />
+    <Compile Include="Encoder\Amf3Encoder.cs" />
+    <Compile Include="Encoder\AmfPacketEncoder.cs" />
+    <Compile Include="Serialization\AmfDataContractDereferencer.cs" />
+    <Compile Include="Serialization\DataContractAmfSerializer.cs" />
+    <Compile Include="Encoder\IAmfEncoder.cs" />
+    <Compile Include="Decoder\IAmfDecoder.cs" />
+    <Compile Include="Serialization\DataContractHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Errors.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Errors.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

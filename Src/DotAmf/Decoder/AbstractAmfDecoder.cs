@@ -3,25 +3,31 @@ using System.Collections.Generic;
 using System.IO;
 using DotAmf.Data;
 
-namespace DotAmf.Serialization
+namespace DotAmf.Decoder
 {
     /// <summary>
-    /// Abstract AMF deserializer.
+    /// Abstract AMF decoder.
     /// </summary>
-    abstract public class AmfDeserializerBase : IAmfDeserializer
+    abstract internal class AbstractAmfDecoder : IAmfDecoder
     {
         #region .ctor
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="reader">AMF stream reader.</param>
-        /// <param name="context">AMF serialization context.</param>
-        protected AmfDeserializerBase(BinaryReader reader, AmfSerializationContext context)
+        /// <param name="options">AMF serialization options.</param>
+        protected AbstractAmfDecoder(BinaryReader reader, AmfEncodingOptions options)
         {
             if (reader == null) throw new ArgumentNullException("reader");
             _reader = reader;
 
-            _context = context;
+            _options = options;
+
+            //In mixed context enviroinments, 
+            //AMF0 is always used by default
+            _currentAmfVersion = _options.UseContextSwitch 
+                ? AmfVersion.Amf0
+                : _options.AmfVersion;
 
             _references = new List<object>();
         }
@@ -39,9 +45,14 @@ namespace DotAmf.Serialization
         private readonly IList<object> _references;
 
         /// <summary>
-        /// AMF serialization context.
+        /// AMF serialization options.
         /// </summary>
-        private AmfSerializationContext _context;
+        private readonly AmfEncodingOptions _options;
+
+        /// <summary>
+        /// Current AMF version.
+        /// </summary>
+        private AmfVersion _currentAmfVersion;
         #endregion
 
         #region Properties
@@ -54,19 +65,35 @@ namespace DotAmf.Serialization
         /// References.
         /// </summary>
         protected IList<object> References { get { return _references; } }
+
+        /// <summary>
+        /// Gets or sets current AMF version.
+        /// </summary>
+        protected AmfVersion CurrentAmfVersion
+        {
+            get { return _currentAmfVersion; }
+            set
+            {
+                if (_currentAmfVersion == value) return;
+                _currentAmfVersion = value;
+                OnContextSwitchEvent(new EncodingContextSwitchEventArgs(_currentAmfVersion));
+            }
+        }
         #endregion
 
         #region IAmfDeserializer implementation
-        public event ContextSwitch ContextSwitch;
+        public abstract IEnumerable<AmfHeader> ReadPacketHeaders();
+
+        public abstract IEnumerable<AmfMessage> ReadPacketMessages();
 
         public abstract object ReadValue();
 
         public virtual void ClearReferences()
         {
-            _references.Clear();
+            References.Clear();
         }
 
-        public AmfSerializationContext Context { get { return _context; } }
+        public event EncodingContextSwitch ContextSwitch;
         #endregion
 
         #region Protected methods
@@ -78,25 +105,10 @@ namespace DotAmf.Serialization
         {
             References.Add(value);
         }
-
-        /// <summary>
-        /// Gets or sets current AMF version.
-        /// </summary>
-        protected AmfVersion CurrentAmfVersion
-        {
-            get { return _context.AmfVersion; }
-            set
-            {
-                if(_context.AmfVersion == value) return;
-                
-                _context.AmfVersion = value;
-                OnContextSwitchEvent(new ContextSwitchEventArgs(_context));
-            }
-        }
         #endregion
 
         #region Event invokers
-        private void OnContextSwitchEvent(ContextSwitchEventArgs e)
+        private void OnContextSwitchEvent(EncodingContextSwitchEventArgs e)
         {
             if (ContextSwitch != null) ContextSwitch(this, e);
         }

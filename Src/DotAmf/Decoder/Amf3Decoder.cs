@@ -6,16 +6,16 @@ using System.Text;
 using System.Xml;
 using DotAmf.Data;
 
-namespace DotAmf.Serialization
+namespace DotAmf.Decoder
 {
     /// <summary>
-    /// AMF3 deserializer.
+    /// AMF3 decoder.
     /// </summary>
-    public class Amf3Deserializer : Amf0Deserializer
+    sealed internal class Amf3Decoder : Amf0Decoder
     {
         #region .ctor
-        public Amf3Deserializer(BinaryReader reader, AmfSerializationContext context)
-            : base(reader, context)
+        public Amf3Decoder(BinaryReader reader, AmfEncodingOptions options)
+            : base(reader, options)
         {
             _stringReferences = new List<string>();
             _traitReferences = new List<AmfTypeTraits>();
@@ -81,7 +81,7 @@ namespace DotAmf.Serialization
         }
         #endregion
 
-        #region IAmfDeserializer implementation
+        #region IAmfDecoder implementation
         override public void ClearReferences()
         {
             base.ClearReferences();
@@ -367,12 +367,17 @@ namespace DotAmf.Serialization
             //ECMA array
             if (key != string.Empty)
             {
-                var hashmap = new AmfObject();
+                //Create a dynamic object
+                var hashmap = new AmfObject
+                                  {
+                                      Properties = new Dictionary<string, object>(),
+                                      Traits = new AmfTypeTraits { IsDynamic = true }
+                                  };
 
                 //Read associative values
                 do
                 {
-                    hashmap[key] = ReadValue();
+                    hashmap.Properties[key] = ReadValue();
                     key = ReadString();
                 } while (key != string.Empty);
 
@@ -380,7 +385,7 @@ namespace DotAmf.Serialization
 
                 //Read array values
                 for (var i = 0; i < length; i++)
-                    hashmap[i.ToString()] = ReadValue();
+                    hashmap.Properties[i.ToString()] = ReadValue();
 
                 SaveReference(hashmap);
                 return hashmap;
@@ -419,18 +424,24 @@ namespace DotAmf.Serialization
                 var isExternalizable = ((reference & 0x4) == 4);
                 var isDynamic = ((reference & 0x8) == 8);
                 var typeName = ReadString();
-                var classMembers = new List<string>();
-
                 var count = (reference >> 4);
+                var classMembers = new string[count];
 
                 for (var i = 0; i < count; i++)
-                    classMembers.Add(ReadString());
+                    classMembers[i] = ReadString();
 
-                //No property names are included for types
-                //that are externizable
-                traits = isExternalizable
-                             ? new AmfTypeTraits(typeName, isDynamic)
-                             : new AmfTypeTraits(typeName, classMembers, isDynamic);
+                traits = new AmfTypeTraits
+                             {
+                                 IsDynamic = isDynamic,
+                                 IsExternalizable = isExternalizable,
+                                 TypeName = typeName,
+
+                                 //No property names are included for types
+                                 //that are externizable or dynamic
+                                 ClassMembers = isDynamic || isExternalizable
+                                    ? new string[0]
+                                    : classMembers
+                             };
 
                 SaveReference(traits);
             }
@@ -454,34 +465,8 @@ namespace DotAmf.Serialization
                 }
             }
 
-            //Look for a data contract registered for this object
-            var contract = Context.ContractResolver.Resolve(traits.TypeName);
-
-            //Found a data contract for this object
-            if (contract != null)
-            {
-                object instance;
-
-                try
-                {
-                    instance = DataContractUtil.InstantiateContract(contract, content);
-                }
-                catch (Exception e)
-                {
-                    throw new SerializationException(Errors.Amf3Deserializer_ReadObject_InstantiationError, e);
-                }
-
-                SaveReference(instance);
-
-                return instance;
-            }
-
-            //No contract found, use a generic AMF object
-            var result = new AmfPlusObject(traits);
+            var result = new AmfObject { Traits = traits, Properties = content };
             SaveReference(result);
-
-            foreach (var data in content)
-                result[data.Key] = data.Value;
 
             return result;
         }

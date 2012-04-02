@@ -6,7 +6,7 @@ namespace DotAmf.Data
     /// AMF message.
     /// </summary>
     [Serializable]
-    sealed public class AmfMessage
+    sealed public class AmfMessage : ICloneable
     {
         /// <summary>
         /// An operation, function, or method is to be remotely invoked.
@@ -22,5 +22,17 @@ namespace DotAmf.Data
         /// A data associated with the operation.
         /// </summary>
         public object Data { get; set; }
+
+        #region IClonable implementation
+        public object Clone()
+        {
+            return new AmfMessage
+                       {
+                           Target = Target,
+                           Response = Response,
+                           Data = Data
+                       };
+        }
+        #endregion
     }
 }

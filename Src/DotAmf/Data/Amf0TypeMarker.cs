@@ -3,7 +3,7 @@
     /// <summary>
     /// AMF0 data type marker.
     /// </summary>
-    public enum Amf0TypeMarker : byte
+    internal enum Amf0TypeMarker : byte
     {
         /// <summary>
         /// A 8 byte double precision floating point value.

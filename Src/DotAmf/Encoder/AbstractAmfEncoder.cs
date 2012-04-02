@@ -3,27 +3,33 @@ using System.Collections.Generic;
 using System.IO;
 using DotAmf.Data;
 
-namespace DotAmf.Serialization
+namespace DotAmf.Encoder
 {
     /// <summary>
-    /// Abstract AMF serializer.
+    /// Abstract AMF encoder.
     /// </summary>
-    abstract public class AmfSerializerBase : IAmfSerializer
+    abstract internal class AbstractAmfEncoder : IAmfEncoder
     {
         #region .ctor
         /// <summary>
         /// Constructor.
         /// </summary>
         /// <param name="writer">AMF stream writer.</param>
-        /// <param name="context">AMF serialization context.</param>
-        protected AmfSerializerBase(BinaryWriter writer, AmfSerializationContext context)
+        /// <param name="options">AMF encoding options.</param>
+        protected AbstractAmfEncoder(BinaryWriter writer, AmfEncodingOptions options)
         {
             if (writer == null) throw new ArgumentNullException("writer");
             _writer = writer;
 
-            _context = context;
+            _options = options;
 
-            _objectReferences = new List<object>();
+            //In mixed context enviroinments, 
+            //AMF0 is always used by default
+            _currentAmfVersion = _options.UseContextSwitch
+                ? AmfVersion.Amf0
+                : _options.AmfVersion;
+
+            _references = new List<object>();
         }
         #endregion
 
@@ -34,14 +40,19 @@ namespace DotAmf.Serialization
         private readonly BinaryWriter _writer;
 
         /// <summary>
-        /// AMF serialization context.
+        /// Object references.
         /// </summary>
-        private AmfSerializationContext _context;
+        private readonly List<object> _references;
 
         /// <summary>
-        /// Objects references.
+        /// AMF encoding options.
         /// </summary>
-        private readonly List<object> _objectReferences;
+        private readonly AmfEncodingOptions _options;
+
+        /// <summary>
+        /// Current AMF version.
+        /// </summary>
+        private AmfVersion _currentAmfVersion;
         #endregion
 
         #region Properties
@@ -49,19 +60,40 @@ namespace DotAmf.Serialization
         /// Stream writer.
         /// </summary>
         protected BinaryWriter Writer { get { return _writer; } }
+
+        /// <summary>
+        /// References.
+        /// </summary>
+        protected IList<object> References { get { return _references; } }
+
+        /// <summary>
+        /// Gets or sets current AMF version.
+        /// </summary>
+        protected AmfVersion CurrentAmfVersion
+        {
+            get { return _currentAmfVersion; }
+            set
+            {
+                if (_currentAmfVersion == value) return;
+                _currentAmfVersion = value;
+                OnContextSwitchEvent(new EncodingContextSwitchEventArgs(_currentAmfVersion));
+            }
+        }
         #endregion
 
         #region IAmfSerializer implementation
-        public event ContextSwitch ContextSwitch;
-
         public virtual void ClearReferences()
         {
-            _objectReferences.Clear();
+            References.Clear();
         }
 
-        public AmfSerializationContext Context { get { return _context; } }
+        public abstract void WritePacketHeader(AmfHeader header);
+
+        public abstract void WritePacketBody(AmfMessage message);
 
         public abstract void WriteValue(object value);
+
+        public event EncodingContextSwitch ContextSwitch;
         #endregion
 
         #region Protected methods
@@ -73,31 +105,16 @@ namespace DotAmf.Serialization
         /// or a position in reference list if the item has already been added.</returns>
         protected int? SaveReference(object item)
         {
-            var index = _objectReferences.IndexOf(item);
+            var index = References.IndexOf(item);
             if (index != -1) return index;
 
-            _objectReferences.Add(item);
+            References.Add(item);
             return null;
-        }
-
-        /// <summary>
-        /// Gets or sets current AMF version.
-        /// </summary>
-        protected AmfVersion CurrentAmfVersion
-        {
-            get { return _context.AmfVersion; }
-            set
-            {
-                if (_context.AmfVersion == value) return;
-
-                _context.AmfVersion = value;
-                OnContextSwitchEvent(new ContextSwitchEventArgs(_context));
-            }
         }
         #endregion
 
         #region Event invokers
-        private void OnContextSwitchEvent(ContextSwitchEventArgs e)
+        private void OnContextSwitchEvent(EncodingContextSwitchEventArgs e)
         {
             if (ContextSwitch != null) ContextSwitch(this, e);
         }

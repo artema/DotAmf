@@ -4,16 +4,16 @@ using System.Runtime.Serialization;
 using System.Text;
 using DotAmf.Data;
 
-namespace DotAmf.Serialization
+namespace DotAmf.Encoder
 {
     /// <summary>
-    /// AMF0 serializer.
+    /// AMF0 encoder.
     /// </summary>
-    public class Amf0Serializer : AmfSerializerBase
+    internal class Amf0Encoder : AbstractAmfEncoder
     {
         #region .ctor
-        public Amf0Serializer(BinaryWriter writer, AmfSerializationContext context)
-            : base(writer, context)
+        public Amf0Encoder(BinaryWriter writer, AmfEncodingOptions options)
+            : base(writer, options)
         {
         }
         #endregion
@@ -23,6 +23,11 @@ namespace DotAmf.Serialization
         /// Maximum number of byte a short string can contain.
         /// </summary>
         private const uint ShortStringLimit = 65535;
+
+        /// <summary>
+        /// <c>Null</c> value.
+        /// </summary>
+        private const string Null = "null";
         #endregion
 
         #region IAmfSerializer implementation
@@ -44,7 +49,27 @@ namespace DotAmf.Serialization
                 return;
             }
 
+            //ToDo: write object
+
             throw new SerializationException("Invalid type: " + type.FullName);
+        }
+
+        public override void WritePacketHeader(AmfHeader header)
+        {
+            WriteUtf8(header.Name);
+            Writer.Write((byte)(header.MustUnderstand ? 0 : 1));
+            Writer.Write(-1); //Header's length
+
+            WriteValue(header.Data);
+        }
+
+        public override void WritePacketBody(AmfMessage message)
+        {
+            WriteUtf8(message.Target ?? Null);
+            WriteUtf8(message.Response ?? Null);
+            Writer.Write(-1); //Message's length
+
+            WriteValue(message.Data);
         }
         #endregion
 
@@ -141,6 +166,20 @@ namespace DotAmf.Serialization
 
             Writer.Write(data);
         }
+
+        /// <summary>
+        /// Write a string.
+        /// </summary>
+        private void WriteUtf8(string value)
+        {
+            if (value == null) value = string.Empty;
+
+            var data = Encoding.UTF8.GetBytes(value);
+
+            Writer.Write((ushort)data.Length);
+            Writer.Write(data);
+        }
+
         #endregion
     }
 }

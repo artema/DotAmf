@@ -1,172 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.Serialization;
-using System.Xml;
-using System.Xml.Schema;
-using System.Xml.Serialization;
 
 namespace DotAmf.Data
 {
     /// <summary>
     /// AMF object.
     /// </summary>
-    [Serializable]
-    [XmlRoot("AmfObject")]
-    public class AmfObject : ISerializable, IDictionary<string, object>, IXmlSerializable
+    [DataContract]
+    sealed internal class AmfObject : IDictionary<string,object>
     {
-        #region .ctor
-        /// <summary>
-        /// Constructs a newtyped  AMF object.
-        /// </summary>
-        /// <param name="typeName">Object's type.</param>
-        public AmfObject(string typeName)
-            : this(typeName, new Dictionary<string, object>())
-        {
-        }
-
-        /// <summary>
-        /// Constructs an anonymous object.
-        /// </summary>
-        public AmfObject()
-            : this(string.Empty)
-        { }
-
-        /// <summary>
-        /// Constructs a newtyped  AMF object with provided properties collection.
-        /// </summary>
-        /// <param name="typeName">Object's type.</param>
-        /// <param name="properties">Collection to use for storing object's properties.</param>
-        public AmfObject(string typeName, IDictionary<string, object> properties)
-        {
-            if (typeName == null) throw new ArgumentNullException("typeName");
-            if (typeName == BaseTypeName) typeName = string.Empty;
-            TypeName = typeName;
-
-            if (properties == null) throw new ArgumentNullException("properties");
-            _properties = properties;
-        }
-        #endregion
-
         #region Constants
         /// <summary>
-        /// Base type name.
+        /// Externizable data property name.
         /// </summary>
-        private const string BaseTypeName = "Object";
+        public const string ExternizableProperty = "$IExternalizable";
         #endregion
 
         #region Properties
         /// <summary>
         /// Object's properties.
         /// </summary>
-        public IDictionary<string, object> Properties { get { return _properties; } }
+        [DataMember]
+        public Dictionary<string, object> Properties { get; set; }
 
         /// <summary>
-        /// Type name.
+        /// Type traits.
         /// </summary>
-        public string TypeName { get; private set; }
-        #endregion
-
-        #region Data
-        /// <summary>
-        /// Object's properties.
-        /// </summary>
-        private readonly IDictionary<string, object> _properties;
-        #endregion
-
-        #region Indexer
-        /// <summary>
-        /// Get or set object's property by name.
-        /// </summary>
-        /// <param name="key">Property name.</param>
-        /// <remarks>Changing this property is effectively
-        /// the same as changing the <c>Properties</c> collection.</remarks>
-        public object this[string key]
-        {
-            get { return _properties[key]; }
-            set { _properties[key] = value; }
-        }
-        #endregion
-
-        #region IEnumerable implementation
-        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
-        {
-            return Properties.GetEnumerator();
-        }
-
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-        #endregion
-
-        #region ISerializable implementation
-        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            foreach (var pair in Properties)
-                info.AddValue(pair.Key, pair.Value);
-
-            info.FullTypeName = TypeName != string.Empty
-                ? TypeName
-                : BaseTypeName;
-        }
-        #endregion
-
-        #region IXmlSerializable implementation
-        public XmlSchema GetSchema()
-        {
-            return null;
-        }
-
-        public void ReadXml(XmlReader reader)
-        {
-            var keySerializer = new XmlSerializer(typeof(string));
-            var valueSerializer = new XmlSerializer(typeof(object));
-            var wasEmpty = reader.IsEmptyElement;
-            reader.Read();
-
-            if (wasEmpty) return;
-
-            while (reader.NodeType != XmlNodeType.EndElement)
-            {
-                reader.ReadStartElement("item");
-                reader.ReadStartElement("key");
-
-                var key = (string)keySerializer.Deserialize(reader);
-                reader.ReadEndElement();
-                reader.ReadStartElement("value");
-
-                var value = valueSerializer.Deserialize(reader);
-                reader.ReadEndElement();
-
-                Properties.Add(key, value);
-                reader.ReadEndElement();
-                reader.MoveToContent();
-            }
-
-            reader.ReadEndElement();
-        }
-
-        public void WriteXml(XmlWriter writer)
-        {
-            var keySerializer = new XmlSerializer(typeof(string));
-            var valueSerializer = new XmlSerializer(typeof(object));
-
-            foreach (var key in Properties.Keys)
-            {
-                writer.WriteStartElement("item");
-                writer.WriteStartElement("key");
-                keySerializer.Serialize(writer, key);
-                writer.WriteEndElement();
-                writer.WriteStartElement("value");
-
-                var value = Properties[key];
-                valueSerializer.Serialize(writer, value);
-                writer.WriteEndElement();
-                writer.WriteEndElement();
-            }
-        }
+        [DataMember]
+        public AmfTypeTraits Traits { get; set; }
         #endregion
 
         #region IDictionary implementation
@@ -202,7 +65,7 @@ namespace DotAmf.Data
 
         public void Add(KeyValuePair<string, object> item)
         {
-            Properties.Add(item);
+            Properties.Add(item.Key, item.Value);
         }
 
         public void Clear()
@@ -212,12 +75,12 @@ namespace DotAmf.Data
 
         public bool Contains(KeyValuePair<string, object> item)
         {
-            return Properties.Contains(item);
+            return Properties.ContainsValue(item.Value);
         }
 
         public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex)
         {
-            Properties.CopyTo(array, arrayIndex);
+            throw new NotSupportedException();
         }
 
         public int Count
@@ -227,77 +90,38 @@ namespace DotAmf.Data
 
         public bool IsReadOnly
         {
-            get { return Properties.IsReadOnly; }
+            get { return false; }
         }
 
         public bool Remove(KeyValuePair<string, object> item)
         {
-            return Properties.Remove(item);
-        }
-        #endregion
-    }
-
-    /// <summary>
-    /// AMF+ object.
-    /// </summary>
-    [Serializable]
-    [XmlRoot("AmfPlusObject")]
-    sealed public class AmfPlusObject : AmfObject
-    {
-        #region .ctor
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        /// <param name="traits">Type traits.</param>
-        public AmfPlusObject(AmfTypeTraits traits)
-            : base(traits.TypeName, BuildDictionary(traits))
-        {
-            if (traits == null) throw new ArgumentNullException("traits");
-            Traits = traits;
-        }
-
-        /// <summary>
-        /// Constructs an anonymous object.
-        /// </summary>
-        public AmfPlusObject()
-            : this(new AmfTypeTraits())
-        {
-        }
-
-        /// <summary>
-        /// Constructs a newtyped  AMF+ object with provided properties collection.
-        /// </summary>
-        /// <param name="typeName">Object's type.</param>
-        /// <param name="properties">Properties to use.</param>
-        public AmfPlusObject(string typeName, IDictionary<string, object> properties)
-            : base(typeName, properties)
-        {
-            Traits = new AmfTypeTraits(typeName, properties.Select(pair => pair.Key));
+            return Properties.Remove(item.Key);
         }
         #endregion
 
-        #region Properties
+        #region Indexer
         /// <summary>
-        /// Type traits.
+        /// Get or set object's property by name.
         /// </summary>
-        public AmfTypeTraits Traits { get; private set; }
+        /// <param name="key">Property name.</param>
+        /// <remarks>Changing this property is effectively
+        /// the same as changing the <c>Properties</c> collection.</remarks>
+        public object this[string key]
+        {
+            get { return Properties[key]; }
+            set { Properties[key] = value; }
+        }
         #endregion
 
-        #region Private methods
-        /// <summary>
-        /// Build a dictionary that will store object's properties.
-        /// </summary>
-        static private IDictionary<string, object> BuildDictionary(AmfTypeTraits traits)
+        #region IEnumerable implementation
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
         {
-            if (traits == null) throw new ArgumentNullException("traits");
+            return Properties.GetEnumerator();
+        }
 
-            //No need to use any constraints
-            if (traits.IsDynamic) return new Dictionary<string, object>();
-
-            //Externizable objects have no properties
-            if (traits.IsExternalizable) return new ConstrainedDictionary(new string[0]);
-
-            return new ConstrainedDictionary(traits.ClassMembers);
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
         #endregion
     }
@@ -305,80 +129,60 @@ namespace DotAmf.Data
     /// <summary>
     /// AMF+ type's traits.
     /// </summary>
-    [Serializable]
-    sealed public class AmfTypeTraits : ISerializable
+    [DataContract]
+    sealed internal class AmfTypeTraits
     {
-        #region .ctor
+        #region Constants
         /// <summary>
-        /// Constructor.
+        /// Base type alias.
         /// </summary>
-        /// <param name="typeName">Fully qualified type name.</param>
-        /// <param name="classMembers">A list of type members.</param>
-        /// <param name="isDynamic">Type if dynamic.</param>
-        public AmfTypeTraits(string typeName, IEnumerable<string> classMembers, bool isDynamic = false)
-        {
-            if (typeName == null) throw new ArgumentNullException("typeName");
-            TypeName = typeName;
-
-            if (classMembers == null) throw new ArgumentNullException("classMembers");
-            ClassMembers = classMembers;
-
-            IsExternalizable = false;
-            IsDynamic = isDynamic;
-        }
-
-        /// <summary>
-        /// Constructs a trait object for an externizable type.
-        /// </summary>
-        /// <param name="typeName">Fully qualified type name.</param>
-        /// <param name="isDynamic">Type if dynamic.</param>
-        public AmfTypeTraits(string typeName, bool isDynamic = false)
-            : this(typeName, new HashSet<string>())
-        {
-            IsExternalizable = true;
-            IsDynamic = isDynamic;
-        }
-
-        /// <summary>
-        /// Constructs a trait object for an anonymous type.
-        /// </summary>
-        public AmfTypeTraits()
-            : this(string.Empty, true)
-        {
-            IsExternalizable = false;
-        }
+        public const string BaseTypeAlias = "";
         #endregion
 
         #region Properties
         /// <summary>
         /// Fully qualified type name.
         /// </summary>
-        public string TypeName { get; private set; }
+        [DataMember]
+        public string TypeName { get; set; }
 
         /// <summary>
         /// A list of type members.
         /// </summary>
-        public IEnumerable<string> ClassMembers { get; private set; }
+        [DataMember]
+        public string[] ClassMembers { get; set; }
 
         /// <summary>
         /// Type is externalizable.
         /// </summary>
-        public bool IsExternalizable { get; private set; }
+        [DataMember]
+        public bool IsExternalizable { get; set; }
 
         /// <summary>
         /// Type is dynamic.
         /// </summary>
-        public bool IsDynamic { get; private set; }
+        [DataMember]
+        public bool IsDynamic { get; set; }
         #endregion
+    }
 
-        #region ISerializable implementation
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            info.AddValue("TypeName", TypeName);
-            info.AddValue("IsExternalizable", IsExternalizable);
-            info.AddValue("IsDynamic", IsDynamic);
-            info.AddValue("ClassMembers", string.Join(", ", ClassMembers.ToArray()));
-        }
+    /// <summary>
+    /// AMF externalizable data.
+    /// </summary>
+    [DataContract]
+    sealed internal class AmfExternalizable
+    {
+        #region Properties
+        /// <summary>
+        /// Type name.
+        /// </summary>
+        public string TypeName { get; set; }
+
+        /// <summary>
+        /// Data.
+        /// </summary>
+        [DataMember]
+        public byte[] Data { get; set; }
         #endregion
     }
 

@@ -6,18 +6,18 @@ using System.Runtime.Serialization;
 using System.Xml;
 using DotAmf.Data;
 
-namespace DotAmf.Serialization
+namespace DotAmf.Encoder
 {
     /// <summary>
-    /// AMF3 serializer.
+    /// AMF3 encoder.
     /// </summary>
-    public class Amf3Serializer : Amf0Serializer
+    sealed internal class Amf3Encoder : Amf0Encoder
     {
         #region .ctor
-        public Amf3Serializer(BinaryWriter writer, AmfSerializationContext context)
-            : base(writer, context)
+        public Amf3Encoder(BinaryWriter writer, AmfEncodingOptions options)
+            : base(writer, options)
         {
-            _rollbackAction = () => CurrentAmfVersion = context.AmfVersion;
+            _rollbackAction = () => CurrentAmfVersion = options.AmfVersion;
 
             _stringReferences = new List<string>();
             _traitReferences = new List<AmfTypeTraits>();
@@ -107,17 +107,6 @@ namespace DotAmf.Serialization
 
             var type = value.GetType();
 
-            //A nullable value
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-                type = Nullable.GetUnderlyingType(type);
-
-            //Check for types from base context
-            if (CurrentAmfVersion != AmfVersion.Amf3 && IsBaseContextType(type))
-            {
-                base.WriteValue(value);
-                return;
-            }
-
             //A primitive value
             if (type.IsValueType || type.IsEnum || type == typeof(string))
             {
@@ -125,26 +114,17 @@ namespace DotAmf.Serialization
                 return;
             }
 
+            //An AMF object
+            if (type == typeof(AmfObject))
+            {
+                PerformWrite(() => Write((AmfObject)value));
+                return;
+            }
+
             //An array
             if (type.IsArray)
             {
                 PerformWrite(() => WriteArrayValue(value));
-                return;
-            }
-
-            var typeAlias = Context.ContractResolver.GetAlias(type);
-
-            //Type has an alias, so it is a data contract object
-            if (typeAlias != null)
-            {
-                PerformWrite(() => Write(value, typeAlias));
-                return;
-            }
-
-            //An AMF+ object)
-            if (type == typeof(AmfPlusObject))
-            {
-                PerformWrite(() => Write((AmfPlusObject)value));
                 return;
             }
 
@@ -156,21 +136,13 @@ namespace DotAmf.Serialization
             }
 
             //An externizable object
-            if (type.IsClass && type.GetInterfaces().Contains(typeof(IExternalizable)))
+            if (value is IExternalizable)
             {
                 PerformWrite(() => Write((IExternalizable)value));
                 return;
             }
 
-            //Check for context violations
-            if (IsBaseContextType(type))
-                throw new SerializationException(
-                    "Unable to serialize the type within current AMF version context: "
-                    + type.FullName);
-
-            throw new SerializationException(
-                "Unable to serialize the type: "
-                + type.FullName);
+            throw new SerializationException("Unable to serialize the type: " + type.FullName);
         }
         #endregion
 
@@ -478,7 +450,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Write an AMF+ object.
         /// </summary>
-        private void Write(AmfPlusObject obj)
+        private void Write(AmfObject obj)
         {
             Write(Amf3TypeMarker.Object);
             var objreference = SaveReference(obj);
@@ -535,32 +507,21 @@ namespace DotAmf.Serialization
 
             //Write member values
             foreach (var member in obj.Traits.ClassMembers)
-                WriteValue(obj[member]);
+                WriteValue(obj.Properties[member]);
 
             //Dynamic types may have a set of name value pairs
             //for dynamic members after the sealed member section.
             if (obj.Traits.IsDynamic)
             {
-                var dynamicMembers = (from pair in obj select pair.Key)
+                var dynamicMembers = (from pair in obj.Properties select pair.Key)
                                      .Except(obj.Traits.ClassMembers);
 
                 foreach (var member in dynamicMembers)
                 {
                     WriteUtf8(member);
-                    WriteValue(obj[member]);
+                    WriteValue(obj.Properties[member]);
                 }
             }
-        }
-
-        /// <summary>
-        /// Write a typed object
-        /// </summary>
-        private void Write(object obj, string typeAlias)
-        {
-            var properties = DataContractUtil.GetContractProperties(obj);
-            var amfObj = new AmfPlusObject(typeAlias, properties);
-
-            Write(amfObj);
         }
 
         /// <summary>
@@ -591,14 +552,6 @@ namespace DotAmf.Serialization
         #endregion
 
         #region Helper methods
-        /// <summary>
-        /// Check if type is a base context type.
-        /// </summary>
-        static private bool IsBaseContextType(Type type)
-        {
-            return (type == typeof(AmfObject) && type != typeof(AmfPlusObject));
-        }
-
         /// <summary>
         /// Perform an AMF+ write action.
         /// </summary>
@@ -637,6 +590,7 @@ namespace DotAmf.Serialization
             if (CurrentAmfVersion == AmfVersion.Amf3)
                 return _mockRollbackAction;
 
+            Write(Amf0TypeMarker.AvmPlusObject);
             CurrentAmfVersion = AmfVersion.Amf3;
             return _rollbackAction;
         }

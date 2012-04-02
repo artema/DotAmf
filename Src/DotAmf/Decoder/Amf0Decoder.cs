@@ -1,29 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Xml;
 using System.Text;
 using DotAmf.Data;
 
-namespace DotAmf.Serialization
+namespace DotAmf.Decoder
 {
     /// <summary>
-    /// AMF0 deserializer.
+    /// AMF0 decoder.
     /// </summary>
-    public class Amf0Deserializer : AmfDeserializerBase
+    internal class Amf0Decoder : AbstractAmfDecoder
     {
         #region .ctor
-        public Amf0Deserializer(BinaryReader reader, AmfSerializationContext context)
-            : base(reader, context)
+        public Amf0Decoder(BinaryReader reader, AmfEncodingOptions options)
+            : base(reader, options)
         {
         }
         #endregion
 
-        #region IAmfDeserializer implementation
+        #region IAmfDecoder implementation
         public override object ReadValue()
         {
-            if(CurrentAmfVersion != AmfVersion.Amf0)
+            if (CurrentAmfVersion != AmfVersion.Amf0)
                 throw new InvalidOperationException("Invalid AMF version: " + CurrentAmfVersion);
 
             Amf0TypeMarker type;
@@ -39,6 +40,60 @@ namespace DotAmf.Serialization
             }
 
             return ReadValue(type);
+        }
+
+        sealed public override IEnumerable<AmfHeader> ReadPacketHeaders()
+        {
+            //Read headers count
+            var headerCount = Reader.ReadUInt16();
+
+            for (var i = 0; i < headerCount; i++)
+            {
+                var header = new AmfHeader();
+
+                try
+                {
+                    header.Name = (string)ReadValue(Amf0TypeMarker.String);
+                    header.MustUnderstand = (bool)ReadValue(Amf0TypeMarker.Boolean);
+
+                    Reader.ReadInt32(); //Header's length
+
+                    header.Data = ReadValue();
+                }
+                catch (Exception e)
+                {
+                    throw new FormatException(Errors.Amf0Deserializer_ReadPacketHeaders_InvalidFormat, e);
+                }
+
+                yield return header;
+            }
+        }
+
+        sealed public override IEnumerable<AmfMessage> ReadPacketMessages()
+        {
+            //Read messages count
+            var messageCount = Reader.ReadUInt16();
+
+            for (var i = 0; i < messageCount; i++)
+            {
+                var message = new AmfMessage();
+
+                try
+                {
+                    message.Target = (string)ReadValue(Amf0TypeMarker.String);
+                    message.Response = (string)ReadValue(Amf0TypeMarker.String);
+
+                    Reader.ReadInt32(); //message's length
+
+                    message.Data = ReadValue();
+                }
+                catch (Exception e)
+                {
+                    throw new FormatException(Errors.Amf0Deserializer_ReadPacketMessages_InvalidFormat, e);
+                }
+
+                yield return message;
+            }
         }
         #endregion
 
@@ -97,7 +152,7 @@ namespace DotAmf.Serialization
                 case Amf0TypeMarker.MovieClip:
                 case Amf0TypeMarker.RecordSet:
                 case Amf0TypeMarker.Unsupported:
-                    throw new NotSupportedException("Type '" + type + "' is not supported.");
+                    throw new NotSupportedException(string.Format(Errors.Amf0Deserializer_ReadValue_UnsupportedType, type));
 
                 case Amf0TypeMarker.AvmPlusObject:
                     return ReadAmvPlusValue();
@@ -162,7 +217,7 @@ namespace DotAmf.Serialization
             if (length == 0) return string.Empty;
 
             var data = Reader.ReadBytes((int)length);
-            
+
             //All strings are encoded in UTF-8)
             return Encoding.UTF8.GetString(data);
         }
@@ -221,7 +276,7 @@ namespace DotAmf.Serialization
         /// <c>object-property = (UTF-8 value-type) | (UTF-8-empty object-end-marker)</c>
         /// </remarks>
         /// <exception cref="SerializationException"></exception>
-        private IDictionary<string, object> ReadPropertiesMap()
+        private Dictionary<string, object> ReadPropertiesMap()
         {
             try
             {
@@ -261,13 +316,14 @@ namespace DotAmf.Serialization
         /// </remarks>
         private AmfObject ReadObject()
         {
-            var result = new AmfObject();
-            SaveReference(result); //Save reference to this object
-
             var properties = ReadPropertiesMap();
+            var result = new AmfObject
+                             {
+                                 Properties = properties,
+                                 Traits = new AmfTypeTraits { IsDynamic = true }
+                             };
 
-            foreach (var pair in properties)
-                result[pair.Key] = pair.Value;
+            SaveReference(result); //Save reference to this object
 
             return result;
         }
@@ -282,27 +338,30 @@ namespace DotAmf.Serialization
         /// </remarks>
         private AmfObject ReadTypedObject()
         {
-            AmfObject result;
-
             try
             {
+                var properties = ReadPropertiesMap();
                 var typeName = ReadString();
-                result = new AmfObject(typeName);
+                var result = new AmfObject
+                                 {
+                                     Properties = properties,
+                                     Traits = new AmfTypeTraits
+                                                  {
+                                                      TypeName = typeName,
+                                                      ClassMembers = properties.Keys.ToArray()
+                                                  }
+                                 };
+
+                SaveReference(result); //Save reference to this object
+
+                return result;
             }
-            finally
+            catch
             {
                 //Make sure that the reference map will not get broken
                 SaveReference(null);
+                throw;
             }
-
-            SaveReference(result); //Save reference to this object
-
-            var properties = ReadPropertiesMap();
-
-            foreach (var pair in properties)
-                result[pair.Key] = pair.Value;
-
-            return result;
         }
 
         /// <summary>
@@ -315,17 +374,18 @@ namespace DotAmf.Serialization
         /// </remarks>
         private AmfObject ReadEcmaArray()
         {
-            var result = new AmfObject();
-            SaveReference(result); //Save reference to this object
-
             var length = Reader.ReadUInt32();
             var properties = ReadPropertiesMap();
+            var result = new AmfObject
+                             {
+                                 Properties = properties,
+                                 Traits = new AmfTypeTraits { IsDynamic = true }
+                             };
+
+            SaveReference(result); //Save reference to this object
 
             if (properties.Count != length)
                 throw new SerializationException("Invalid array length.");
-
-            foreach (var pair in properties)
-                result[pair.Key] = pair.Value;
 
             return result;
         }
