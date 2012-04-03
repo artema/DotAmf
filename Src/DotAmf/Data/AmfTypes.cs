@@ -8,8 +8,8 @@ namespace DotAmf.Data
     /// <summary>
     /// AMF object.
     /// </summary>
-    [DataContract]
-    sealed internal class AmfObject : IDictionary<string,object>
+    [DataContract(Namespace = "http://dotamf.net/")]
+    sealed public class AmfObject : IDictionary<string,object>
     {
         #region Constants
         /// <summary>
@@ -129,8 +129,8 @@ namespace DotAmf.Data
     /// <summary>
     /// AMF+ type's traits.
     /// </summary>
-    [DataContract]
-    sealed internal class AmfTypeTraits
+    [DataContract(Namespace = "http://dotamf.net/")]
+    sealed public class AmfTypeTraits
     {
         #region Constants
         /// <summary>
@@ -169,8 +169,8 @@ namespace DotAmf.Data
     /// <summary>
     /// AMF externalizable data.
     /// </summary>
-    [DataContract]
-    sealed internal class AmfExternalizable
+    [DataContract(Namespace = "http://dotamf.net/")]
+    sealed public class AmfExternalizable
     {
         #region Properties
         /// <summary>

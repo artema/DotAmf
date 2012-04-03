@@ -8,7 +8,7 @@
     <ProjectGuid>{7F1303A6-9994-490E-B6B3-BDC5113281EE}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>DotAmf.Wcf</RootNamespace>
+    <RootNamespace>DotAmf.ServiceModel</RootNamespace>
     <AssemblyName>DotAmf.Wcf</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -44,6 +44,55 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Channels\Messages\AmfBatchMessage.cs" />
+    <Compile Include="Channels\Messages\AmfMessageBase.cs" />
+    <Compile Include="Description\AmfOperationBehavior.cs" />
+    <Compile Include="Dispatcher\AmfEndpointContext.cs" />
+    <Compile Include="Dispatcher\AmfMessageFilter.cs" />
+    <Compile Include="Dispatcher\AmfMessageInspector.cs" />
+    <Compile Include="Dispatcher\AmfOperationInvoker.cs" />
+    <Compile Include="Dispatcher\AmfOperationKind.cs" />
+    <Compile Include="Configuration\AmfBehaviorExtensionElement.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Description\AmfEndpointBehavior.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Configuration\AmfBindingExtensionElement.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Channels\AmfEncodingBindingElement.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Channels\AmfEncoder.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Channels\AmfEncoderFactory.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Channels\Messages\AmfGenericMessage.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Dispatcher\AmfDispatchOperationSelector.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Dispatcher\AmfGenericOperationInvoker.cs" />
+    <Compile Include="Dispatcher\AmfGenericOperationFormatter.cs" />
+    <Compile Include="Dispatcher\AmfBatchOperationFormatter.cs" />
+    <Compile Include="Dispatcher\AmfBatchOperationInvoker.cs" />
+    <Compile Include="Dispatcher\AmfOperationUtil.cs" />
+    <Compile Include="Dispatcher\AmfCommandFormatter.cs" />
+    <Compile Include="Dispatcher\AmfCommandInvoker.cs" />
+    <Compile Include="Errors.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Errors.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Messaging\AbstractMessage.cs" />
+    <Compile Include="Messaging\AcknowledgeMessage.cs" />
+    <Compile Include="Messaging\CommandMessage.cs" />
+    <Compile Include="Messaging\MessagingHeaders.cs" />
+    <Compile Include="Messaging\RemotingMessage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -51,6 +100,12 @@
       <Project>{DBF8762E-17D7-4AAE-9F06-133DE9870FBC}</Project>
       <Name>DotAmf</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Errors.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Errors.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

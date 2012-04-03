@@ -77,7 +77,8 @@ namespace DotAmf.Serialization
             }
 
             //Look for a known type
-            return knownTypeResolver.ResolveName(typeName, typeNamespace, declaredType, null);
+            var res = knownTypeResolver.ResolveName(typeName, typeNamespace, declaredType, null);
+            return res;
         }
 
         public override bool TryResolveType(Type type, Type declaredType, DataContractResolver knownTypeResolver, out XmlDictionaryString typeName, out XmlDictionaryString typeNamespace)
@@ -108,7 +109,8 @@ namespace DotAmf.Serialization
             }
 
             //Look for a known type
-            return knownTypeResolver.TryResolveType(type, declaredType, null, out typeName, out typeNamespace);
+            var res = knownTypeResolver.TryResolveType(type, declaredType, null, out typeName, out typeNamespace);
+            return res;
         }
         #endregion
 
@@ -171,7 +173,7 @@ namespace DotAmf.Serialization
                                        ? value.GetType()
                                        : typeof(object);
 
-                if (propertyType == typeof(AmfObject))
+                if (propertyType == typeof(object[]))
                     propertyType = typeof(object);
 
                 var fieldBuilder = typeBuilder.DefineField(property, propertyType, FieldAttributes.Public);
@@ -242,7 +244,7 @@ namespace DotAmf.Serialization
                 typeof(DataContractAttribute).GetConstructor(Type.EmptyTypes),
                 new object[0],
                     typeof(DataContractAttribute).GetProperties().Where(pr => pr.Name == "Namespace").ToArray(),
-                    new[] { AmfSerializationContext.AmfNamespace });
+                    new object[] { AmfSerializationContext.AmfNamespace });
         }
 
         /// <summary>
@@ -273,8 +275,9 @@ namespace DotAmf.Serialization
         {
             if (type == null) throw new ArgumentNullException("type");
 
-            //By default, use type's full name as its alias
-            AddContract(type, type.FullName);
+            //Try to register the type
+            if (!TryToAddType(type))
+                throw new Exception(Errors.AmfContractResolver_TypeRegistrationError);
         }
 
         /// <summary>
@@ -393,8 +396,8 @@ namespace DotAmf.Serialization
 
             public object GetObjectToSerialize(object obj, Type targetType)
             {
-                return obj.GetType() == typeof(AmfObject) 
-                    ? _proxyFactoryMethod.Invoke((AmfObject)obj) 
+                return obj.GetType() == typeof(AmfObject)
+                    ? _proxyFactoryMethod.Invoke((AmfObject)obj)
                     : obj;
             }
 
