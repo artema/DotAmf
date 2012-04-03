@@ -251,7 +251,7 @@ namespace DotAmf.Decoder
             var data = Reader.ReadBytes(length);
 
             //All strings are encoded in UTF-8
-            return new UTF8Encoding().GetString(data);
+            return Encoding.UTF8.GetString(data);
         }
 
         /// <summary>

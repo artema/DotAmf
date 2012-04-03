@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text;
 using System.Xml;
 using DotAmf.Data;
 
@@ -323,7 +324,7 @@ namespace DotAmf.Encoder
                 return;
             }
 
-            var decoded = data.ToCharArray();
+            var decoded = Encoding.UTF8.GetBytes(data);
 
             //The first bit is a flag with value 1.
             //The remaining 1 to 28 significant bits are used 
