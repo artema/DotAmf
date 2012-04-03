@@ -15,6 +15,21 @@ namespace DotAmf.ServiceModel.Dispatcher
     /// <see cref="AmfGenericOperationInvoker"/>
     internal class AmfGenericOperationFormatter : IDispatchMessageFormatter
     {
+        #region .ctor
+        public AmfGenericOperationFormatter(IDispatchMessageFormatter formatter)
+        {
+            if (formatter == null) throw new ArgumentNullException("formatter");
+            _formatter = formatter;
+        }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Operation formatter.
+        /// </summary>
+        private readonly IDispatchMessageFormatter _formatter;
+        #endregion
+
         #region IDispatchMessageFormatter Members
         /// <summary>
         /// Deserializes a message into an array of parameters.
@@ -23,21 +38,37 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <param name="parameters">The objects that are passed to the operation as parameters.</param>
         public virtual void DeserializeRequest(Message message, object[] parameters)
         {
-            var request = (AmfGenericMessage)message;
+            var amfrequest = message as AmfGenericMessage;
 
-            OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody] = request.AmfMessage;
-            OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageHeaders] = request.AmfHeaders;
+            //An AMF operation
+            if (amfrequest != null)
+            {
+                OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody] = amfrequest.AmfMessage;
+                OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageHeaders] = amfrequest.AmfHeaders;
 
-            var rpcMessage = request.AmfMessage.Data as RemotingMessage;
+                var rpcMessage = amfrequest.AmfMessage.Data as RemotingMessage;
 
-            if (rpcMessage != null)
-                OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage] = rpcMessage;
+                if (rpcMessage != null)
+                    OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage] = rpcMessage;
 
-            //Fill parameters, allocated by AmfGenericOperationInvoker
-            if (rpcMessage != null)
-                parameters[0] = rpcMessage.Body as object[];
+                object[] input;
+
+                if (rpcMessage != null)
+                    input = rpcMessage.Body as object[];
+                else
+                    input = amfrequest.AmfMessage.Data as object[];
+
+                if(input == null || input.Length != parameters.Length)
+                    throw new InvalidOperationException("Argument count mismatch.");
+
+                for (var i = 0; i < input.Length; i++)
+                    parameters[i] = input[i];
+            }
+            //A regular operation
             else
-                parameters[0] = request.AmfMessage.Data as object[] ?? new object[0];
+            {
+                _formatter.DeserializeRequest(message, parameters);
+            }
         }
 
         /// <summary>
@@ -49,26 +80,35 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <returns>The serialized reply message.</returns>
         public virtual Message SerializeReply(MessageVersion messageVersion, object[] parameters, object result)
         {
-            var requestMessage = (AmfMessage)OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody];
-
-            if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.RemotingMessage))
+            //An AMF operation
+            if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.InvokerMessageBody))
             {
-                var rpcMessage = (RemotingMessage)OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage];
-                var acknowledge = AmfOperationUtil.BuildAcknowledgeMessage(rpcMessage);
-                acknowledge.Body = result;
+                var requestMessage = (AmfMessage)OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody];
 
-                result = acknowledge;
+                if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.RemotingMessage))
+                {
+                    var rpcMessage =
+                        (RemotingMessage)
+                        OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage];
+                    var acknowledge = AmfOperationUtil.BuildAcknowledgeMessage(rpcMessage);
+                    acknowledge.Body = result;
+
+                    result = acknowledge;
+                }
+
+                var replyHeaders = new Dictionary<string, AmfHeader>();
+                var replyMessage = new AmfMessage
+                                       {
+                                           Data = result,
+                                           Target = AmfOperationUtil.CreateReplyTarget(requestMessage),
+                                           Response = string.Empty
+                                       };
+
+                return new AmfGenericMessage(replyHeaders, replyMessage);
             }
 
-            var replyHeaders = new Dictionary<string, AmfHeader>();
-            var replyMessage = new AmfMessage
-                                   {
-                                       Data = result,
-                                       Target = AmfOperationUtil.CreateReplyTarget(requestMessage),
-                                       Response = string.Empty
-                                   };
-
-            return new AmfGenericMessage(replyHeaders, replyMessage);
+            //A regular operation
+            return _formatter.SerializeReply(messageVersion, parameters, result);
         }
         #endregion
     }

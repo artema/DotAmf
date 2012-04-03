@@ -1,4 +1,5 @@
-﻿using System.ServiceModel.Channels;
+﻿using System;
+using System.ServiceModel.Channels;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
 using DotAmf.ServiceModel.Dispatcher;
@@ -10,6 +11,21 @@ namespace DotAmf.ServiceModel.Description
     /// </summary>
     sealed internal class AmfOperationBehavior : IOperationBehavior
     {
+        #region .ctor
+        public AmfOperationBehavior(ServiceEndpoint endpoint)
+        {
+            if (endpoint == null) throw new ArgumentNullException("endpoint");
+            _endpoint = endpoint;
+        }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Endpoint.
+        /// </summary>
+        private readonly ServiceEndpoint _endpoint;
+        #endregion
+
         #region IOperationBehavior implementation
         /// <summary>
         /// Implements a modification or extension of the service across an operation.
@@ -20,8 +36,8 @@ namespace DotAmf.ServiceModel.Description
         /// for the operation described by <c>operationDescription</c>.</param>
         public void ApplyDispatchBehavior(OperationDescription operationDescription, DispatchOperation dispatchOperation)
         {
-            dispatchOperation.Invoker = new AmfGenericOperationInvoker(dispatchOperation.Invoker);
-            dispatchOperation.Formatter = new AmfGenericOperationFormatter();
+            //dispatchOperation.Invoker = new AmfGenericOperationInvoker(dispatchOperation.Invoker);
+            dispatchOperation.Formatter = new AmfGenericOperationFormatter(dispatchOperation.Formatter);
         }
 
         public void AddBindingParameters(OperationDescription operationDescription, BindingParameterCollection bindingParameters)

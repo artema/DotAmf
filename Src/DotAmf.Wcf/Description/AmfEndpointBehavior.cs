@@ -1,4 +1,5 @@
-﻿using System.ServiceModel.Channels;
+﻿using System.Linq;
+using System.ServiceModel.Channels;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
 using DotAmf.ServiceModel.Dispatcher;
@@ -33,7 +34,9 @@ namespace DotAmf.ServiceModel.Description
             //Apply regular AMF operation behavior
             foreach (var descriptor in endpoint.Contract.Operations)
             {
-                descriptor.Behaviors.Add(new AmfOperationBehavior());
+                if (descriptor.Behaviors.OfType<AmfOperationBehavior>().FirstOrDefault() != null) continue;
+
+                descriptor.Behaviors.Add(new AmfOperationBehavior(endpoint));
             }
 
             //Command operation
@@ -46,17 +49,6 @@ namespace DotAmf.ServiceModel.Description
                 Formatter = new AmfCommandFormatter(),
             };
             endpointDispatcher.DispatchRuntime.Operations.Add(commandOperation);
-            
-            //Batch operation
-            var batchOperation = new DispatchOperation(endpointDispatcher.DispatchRuntime,
-                                                       AmfOperationKind.Batch,
-                                                       AmfOperationKind.Batch,
-                                                       null)
-            {
-                Invoker = new AmfBatchOperationInvoker(),
-                Formatter = new AmfBatchOperationFormatter(),
-            };
-            endpointDispatcher.DispatchRuntime.Operations.Add(batchOperation);
         }
 
         public void AddBindingParameters(ServiceEndpoint endpoint, BindingParameterCollection bindingParameters)

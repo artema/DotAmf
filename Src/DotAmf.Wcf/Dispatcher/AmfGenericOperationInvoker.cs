@@ -1,5 +1,7 @@
 ﻿using System;
+using System.ServiceModel;
 using System.ServiceModel.Dispatcher;
+using DotAmf.ServiceModel.Messaging;
 
 namespace DotAmf.ServiceModel.Dispatcher
 {
@@ -25,15 +27,22 @@ namespace DotAmf.ServiceModel.Dispatcher
         #endregion
 
         #region IOperationInvoker implementation
-        override public object[] AllocateInputs() { return new object[1]; } //An object[] is expected at [0]
+        override public object[] AllocateInputs() { return _invoker.AllocateInputs(); } //An object[] is expected at [0]
 
         override public object Invoke(object instance, object[] inputs, out object[] outputs)
         {
-            var parameters = inputs[0] as object[];
+            //An AMF operation
+            if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.InvokerMessageBody))
+            {
+                var parameters = inputs[0] as object[];
 
-            if (parameters == null) throw new ArgumentException("Input parameters not found.", "inputs");
+                if (parameters == null) throw new ArgumentException("Input parameters not found.", "inputs");
 
-            return _invoker.Invoke(instance, parameters, out outputs);
+                return _invoker.Invoke(instance, parameters, out outputs);
+            }
+
+            //A regular operation
+            return _invoker.Invoke(instance, inputs, out outputs);
         }
         #endregion
     }

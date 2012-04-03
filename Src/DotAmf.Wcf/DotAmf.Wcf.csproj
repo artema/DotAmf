@@ -78,8 +78,6 @@
     </Compile>
     <Compile Include="Dispatcher\AmfGenericOperationInvoker.cs" />
     <Compile Include="Dispatcher\AmfGenericOperationFormatter.cs" />
-    <Compile Include="Dispatcher\AmfBatchOperationFormatter.cs" />
-    <Compile Include="Dispatcher\AmfBatchOperationInvoker.cs" />
     <Compile Include="Dispatcher\AmfOperationUtil.cs" />
     <Compile Include="Dispatcher\AmfCommandFormatter.cs" />
     <Compile Include="Dispatcher\AmfCommandInvoker.cs" />
