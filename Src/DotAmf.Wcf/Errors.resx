@@ -101,4 +101,16 @@
 	<data name="AmfGenericOperationInvoker_Invoke_MessageNotFound">
 		<value xml:space="preserve">AmfGenericMessage was expected at inputs[0]</value>
 	</data>
+	<data name="AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch">
+		<value xml:space="preserve">Argument count mismatch.</value>
+	</data>
+	<data name="AmfEncoder_WriteMessage_InvalidMessageType">
+		<value xml:space="preserve">Invalid message type.</value>
+	</data>
+	<data name="AmfEncoder_WriteMessage_EmptyAmfMessage">
+		<value xml:space="preserve">AMF message contains no message bodies.</value>
+	</data>
+	<data name="AmfCommandInvoker_ProcessCommand_OperationNotSupported">
+		<value><![CDATA[Operation '{0}' is not supported.]]></value>
+	</data>
 </root>

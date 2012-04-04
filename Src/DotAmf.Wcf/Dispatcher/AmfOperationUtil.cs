@@ -27,14 +27,14 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <summary>
         /// Build a message reply.
         /// </summary>
-        /// <param name="commandRequest">Request message.</param>
+        /// <param name="request">Request message.</param>
         /// <param name="body">Reply message's body.</param>
-        static public AmfGenericMessage BuildMessageReply(AmfGenericMessage commandRequest, object body)
+        static public AmfGenericMessage BuildMessageReply(AmfGenericMessage request, object body)
         {
             var replyHeaders = new Dictionary<string, AmfHeader>();
             var replyMessage = new AmfMessage
             {
-                Target = CreateReplyTarget(commandRequest.AmfMessage),
+                Target = CreateResultReplyTarget(request.AmfMessage),
                 Response = string.Empty,
                 Data = body
             };
@@ -57,6 +57,20 @@ namespace DotAmf.ServiceModel.Dispatcher
         }
 
         /// <summary>
+        /// Build an error message.
+        /// </summary>
+        /// <param name="message">Incoming message.</param>
+        static public ErrorMessage BuildErrorMessage(AbstractMessage message)
+        {
+            return new ErrorMessage
+            {
+                MessageId = GenerateUuid(),
+                CorrelationId = message.MessageId,
+                Timestamp = GenerateTimestamp()
+            };
+        }
+
+        /// <summary>
         /// Generate a unique ID.
         /// </summary>
         static public string GenerateUuid()
@@ -76,12 +90,21 @@ namespace DotAmf.ServiceModel.Dispatcher
 
         #region Helper methods
         /// <summary>
-        /// Create a reply message's target.
+        /// Create a result message's reply target.
         /// </summary>
         /// <param name="requestMessage">Request message.</param>
-        static public string CreateReplyTarget(AmfMessage requestMessage)
+        static public string CreateResultReplyTarget(AmfMessage requestMessage)
         {
             return string.Format(OperationResultTarget, requestMessage.Response ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Create a status message's reply target.
+        /// </summary>
+        /// <param name="requestMessage">Request message.</param>
+        static public string CreateStatusReplyTarget(AmfMessage requestMessage)
+        {
+            return string.Format(OperationFaultTarget, requestMessage.Response ?? string.Empty);
         }
         #endregion
     }

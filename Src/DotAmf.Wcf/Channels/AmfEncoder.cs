@@ -179,7 +179,7 @@ namespace DotAmf.ServiceModel.Channels
         public override void WriteMessage(Message message, Stream stream)
         {
             var messageBase = message as AmfMessageBase;
-            if (messageBase == null) throw new ArgumentException("Unknown message type", "message");
+            if (messageBase == null) throw new ArgumentException(Errors.AmfEncoder_WriteMessage_InvalidMessageType, "message");
 
             var packet = new AmfPacket();
 
@@ -202,7 +202,7 @@ namespace DotAmf.ServiceModel.Channels
             }
 
             if (packet.Messages.Count == 0)
-                throw new ArgumentException("AMF message contains no message bodies.", "message");
+                throw new ArgumentException(Errors.AmfEncoder_WriteMessage_EmptyAmfMessage, "message");
 
             _encoder.Write(stream, packet);
         }

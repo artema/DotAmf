@@ -12,8 +12,7 @@ namespace DotAmf.ServiceModel.Dispatcher
     /// <summary>
     /// Generic AMF operation formatter.
     /// </summary>
-    /// <see cref="AmfGenericOperationInvoker"/>
-    internal class AmfGenericOperationFormatter : IDispatchMessageFormatter
+    sealed internal class AmfGenericOperationFormatter : IDispatchMessageFormatter
     {
         #region .ctor
         public AmfGenericOperationFormatter(IDispatchMessageFormatter formatter)
@@ -36,7 +35,7 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// </summary>
         /// <param name="message">The incoming message.</param>
         /// <param name="parameters">The objects that are passed to the operation as parameters.</param>
-        public virtual void DeserializeRequest(Message message, object[] parameters)
+        public void DeserializeRequest(Message message, object[] parameters)
         {
             var amfrequest = message as AmfGenericMessage;
 
@@ -58,8 +57,8 @@ namespace DotAmf.ServiceModel.Dispatcher
                 else
                     input = amfrequest.AmfMessage.Data as object[];
 
-                if(input == null || input.Length != parameters.Length)
-                    throw new InvalidOperationException("Argument count mismatch.");
+                if (input == null || input.Length != parameters.Length)
+                    throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
 
                 for (var i = 0; i < input.Length; i++)
                     parameters[i] = input[i];
@@ -78,18 +77,17 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <param name="parameters">The out parameters.</param>
         /// <param name="result">The return value.</param>
         /// <returns>The serialized reply message.</returns>
-        public virtual Message SerializeReply(MessageVersion messageVersion, object[] parameters, object result)
+        public Message SerializeReply(MessageVersion messageVersion, object[] parameters, object result)
         {
             //An AMF operation
             if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.InvokerMessageBody))
             {
                 var requestMessage = (AmfMessage)OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody];
 
+                //An RPC operation
                 if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.RemotingMessage))
                 {
-                    var rpcMessage =
-                        (RemotingMessage)
-                        OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage];
+                    var rpcMessage = (RemotingMessage)OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage];
                     var acknowledge = AmfOperationUtil.BuildAcknowledgeMessage(rpcMessage);
                     acknowledge.Body = result;
 
@@ -100,7 +98,7 @@ namespace DotAmf.ServiceModel.Dispatcher
                 var replyMessage = new AmfMessage
                                        {
                                            Data = result,
-                                           Target = AmfOperationUtil.CreateReplyTarget(requestMessage),
+                                           Target = AmfOperationUtil.CreateResultReplyTarget(requestMessage),
                                            Response = string.Empty
                                        };
 

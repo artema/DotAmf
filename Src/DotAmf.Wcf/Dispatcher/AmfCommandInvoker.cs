@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using DotAmf.ServiceModel.Channels;
+using DotAmf.ServiceModel.Configuration;
 using DotAmf.ServiceModel.Messaging;
 
 namespace DotAmf.ServiceModel.Dispatcher
@@ -10,6 +12,24 @@ namespace DotAmf.ServiceModel.Dispatcher
     /// <see cref="AmfCommandFormatter"/>
     internal class AmfCommandInvoker : AmfOperationInvoker
     {
+        #region .ctor
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="capabilities">Endpoint capabilities.</param>
+        public AmfCommandInvoker(AmfEndpointCapabilities capabilities)
+        {
+            _capabilities = capabilities;
+        }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Endpoint capabilities.
+        /// </summary>
+        private readonly AmfEndpointCapabilities _capabilities;
+        #endregion
+
         #region IOperationInvoker implementation
         override public object[] AllocateInputs() { return new object[1]; } //Allocate memory for an AmfGenericMessage
 
@@ -32,25 +52,20 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <returns>Service reply message.</returns>
         protected AmfGenericMessage ProcessCommand(AmfGenericMessage request)
         {
-            if (request == null) throw new ArgumentNullException("request");
-
-            var command = request.AmfMessage.Data as CommandMessage;
-            if (command == null) throw new ArgumentException("Command not found.", "request");
-
+            var command = (CommandMessage)request.AmfMessage.Data;
             Func<AmfGenericMessage, CommandMessage, AmfGenericMessage> handler;
 
-            switch(command.Operation)
+            switch (command.Operation)
             {
                 case CommandMessageOperation.ClientPing:
                     handler = HandleClientPing;
                     break;
 
                 default:
-                    throw new NotSupportedException(string.Format("Operation '{0}' is not supported", command.Operation));
+                    throw new NotSupportedException(string.Format(Errors.AmfCommandInvoker_ProcessCommand_OperationNotSupported, command.Operation));
             }
 
-            var reply = handler.Invoke(request, command);
-            return reply;
+            return handler.Invoke(request, command);
         }
         #endregion
 
@@ -58,9 +73,14 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <summary>
         /// Handle command message: a clinet ping.
         /// </summary>
-        private static AmfGenericMessage HandleClientPing(AmfGenericMessage request, CommandMessage message)
+        private AmfGenericMessage HandleClientPing(AmfGenericMessage request, CommandMessage message)
         {
             var acknowledge = AmfOperationUtil.BuildAcknowledgeMessage(message);
+            acknowledge.Headers = new Dictionary<string, object>
+                                      {
+                                          {CommandMessageHeader.MessagingVersion, _capabilities.MessagingVersion}
+                                      };
+
             return AmfOperationUtil.BuildMessageReply(request, acknowledge);
         }
         #endregion

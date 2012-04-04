@@ -7,7 +7,7 @@ namespace DotAmf.ServiceModel.Messaging
     /// Every message sent within the messaging system must receive an acknowledgement. 
     /// </summary>
     [DataContract(Name = "flex.messaging.messages.AcknowledgeMessage")]
-    sealed public class AcknowledgeMessage : AbstractMessage
+    public class AcknowledgeMessage : AbstractMessage
     {
     }
 }

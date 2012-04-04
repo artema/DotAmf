@@ -2,6 +2,7 @@
 using System.ServiceModel.Channels;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
+using DotAmf.ServiceModel.Configuration;
 using DotAmf.ServiceModel.Dispatcher;
 
 namespace DotAmf.ServiceModel.Description
@@ -11,6 +12,24 @@ namespace DotAmf.ServiceModel.Description
     /// </summary>
     sealed public class AmfEndpointBehavior : IEndpointBehavior
     {
+        #region .ctor
+        public AmfEndpointBehavior()
+        {
+            //Create endpoint capabilities descriptor
+            _capabilities = new AmfEndpointCapabilities
+            {
+                MessagingVersion = 1
+            };
+        }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Endpoint capabilities.
+        /// </summary>
+        private readonly AmfEndpointCapabilities _capabilities;
+        #endregion
+
         #region Overriden methods
         /// <summary>
         /// Implements the <c>IEndpointBehavior.ApplyDispatchBehavior</c> method to support modification or extension of the client across an endpoint.
@@ -31,12 +50,15 @@ namespace DotAmf.ServiceModel.Description
             //Create message inspector that will dereference reply messages' data contracts
             endpointDispatcher.DispatchRuntime.MessageInspectors.Add(new AmfMessageInspector(endpointContext));
 
+            //Create error handler
+            endpointDispatcher.ChannelDispatcher.ErrorHandlers.Add(new AmfErrorHandler());
+
             //Apply regular AMF operation behavior
             foreach (var descriptor in endpoint.Contract.Operations)
             {
                 if (descriptor.Behaviors.OfType<AmfOperationBehavior>().FirstOrDefault() != null) continue;
 
-                descriptor.Behaviors.Add(new AmfOperationBehavior(endpoint));
+                descriptor.Behaviors.Add(new AmfOperationBehavior());
             }
 
             //Command operation
@@ -45,7 +67,7 @@ namespace DotAmf.ServiceModel.Description
                                                          AmfOperationKind.Command,
                                                          null)
             {
-                Invoker = new AmfCommandInvoker(),
+                Invoker = new AmfCommandInvoker(_capabilities),
                 Formatter = new AmfCommandFormatter(),
             };
             endpointDispatcher.DispatchRuntime.Operations.Add(commandOperation);

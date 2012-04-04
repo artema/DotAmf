@@ -7,7 +7,7 @@ namespace DotAmf.ServiceModel.Channels
     /// <summary>
     /// Generic AMF message.
     /// </summary>
-    sealed internal class AmfGenericMessage : AmfMessageBase
+    internal class AmfGenericMessage : AmfMessageBase
     {
         #region .ctor
         /// <summary>
