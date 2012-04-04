@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using DotAmf.Data;
 
 namespace DotAmf.Serialization
 {
@@ -110,6 +111,29 @@ namespace DotAmf.Serialization
                 map[pair.Key] = pair.Value;
 
             return map;
+        }
+
+        /// <summary>
+        /// Create dynamic untyped object.
+        /// </summary>
+        /// <param name="source">Source object's properties.</param>
+        /// <returns></returns>
+        static public AmfObject CreateDynamicObject(IDictionary<string,object> source)
+        {
+            if (source == null) throw new ArgumentNullException("source");
+
+            var obj = new AmfObject
+            {
+                Properties = new Dictionary<string, object>(source),
+                Traits = new AmfTypeTraits
+                {
+                    IsDynamic = true,
+                    TypeName = AmfTypeTraits.BaseTypeAlias,
+                    ClassMembers = new string[0]
+                }
+            };
+
+            return obj;
         }
         #endregion
 

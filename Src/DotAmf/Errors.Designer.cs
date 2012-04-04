@@ -61,6 +61,33 @@ namespace DotAmf {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Switching current AMF context to {0}..
+        /// </summary>
+        internal static string AbstractAmfDecoder_CurrentAmfVersion_Debug {
+            get {
+                return ResourceManager.GetString("AbstractAmfDecoder_CurrentAmfVersion_Debug", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found {0} message headers..
+        /// </summary>
+        internal static string Amf0Decoder_ReadPacketHeaders_Debug {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadPacketHeaders_Debug", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found {0} message bodies..
+        /// </summary>
+        internal static string Amf0Decoder_ReadPacketMessages_Debug {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadPacketMessages_Debug", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to AMF header has invalid format..
         /// </summary>
         internal static string Amf0Deserializer_ReadPacketHeaders_InvalidFormat {
@@ -84,6 +111,123 @@ namespace DotAmf {
         internal static string Amf0Deserializer_ReadValue_UnsupportedType {
             get {
                 return ResourceManager.GetString("Amf0Deserializer_ReadValue_UnsupportedType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type is dynamic..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_Dynamic {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_Dynamic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dynamic portion of the type has ended..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_DynamicEnd {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_DynamicEnd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type has been read successfully..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_End {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_End", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type is externizable..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_Externizable {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_Externizable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type contains {0} members..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_Members {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_Members", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found type traits for type &apos;{0}&apos;..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_Name {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reading dynamic type members..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_ReadingDynamic {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_ReadingDynamic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Trying to read a value for a dynamic member &apos;{0}&apos;..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_ReadingDynamicField {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_ReadingDynamicField", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Trying to read a value for a member #{0} &apos;{1}&apos;..
+        /// </summary>
+        internal static string Amf3Decoder_ReadObject_Debug_ReadingField {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadObject_Debug_ReadingField", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reading value of type {0} from position {1}..
+        /// </summary>
+        internal static string Amf3Decoder_ReadValue_Debug {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadValue_Debug", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Finished reading value of type {0} on position {1}..
+        /// </summary>
+        internal static string Amf3Decoder_ReadValue_End {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadValue_End", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type marker not found at position {0}..
+        /// </summary>
+        internal static string Amf3Decoder_ReadValue_InvalidMarker_ {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadValue_InvalidMarker.", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value type marker not found at position {0}..
+        /// </summary>
+        internal static string Amf3Decoder_ReadValue_TypeMarkerNotFound {
+            get {
+                return ResourceManager.GetString("Amf3Decoder_ReadValue_TypeMarkerNotFound", resourceCulture);
             }
         }
         

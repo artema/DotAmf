@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using DotAmf.Data;
 
@@ -76,6 +77,11 @@ namespace DotAmf.Decoder
             {
                 if (_currentAmfVersion == value) return;
                 _currentAmfVersion = value;
+
+                #if DEBUG
+                Debug.WriteLine(string.Format(Errors.AbstractAmfDecoder_CurrentAmfVersion_Debug, _currentAmfVersion));
+                #endif
+
                 OnContextSwitchEvent(new EncodingContextSwitchEventArgs(_currentAmfVersion));
             }
         }

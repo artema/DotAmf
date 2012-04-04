@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -47,6 +48,10 @@ namespace DotAmf.Decoder
             //Read headers count
             var headerCount = Reader.ReadUInt16();
 
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf0Decoder_ReadPacketHeaders_Debug, headerCount));
+            #endif
+
             for (var i = 0; i < headerCount; i++)
             {
                 var header = new AmfHeader();
@@ -73,6 +78,10 @@ namespace DotAmf.Decoder
         {
             //Read messages count
             var messageCount = Reader.ReadUInt16();
+
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf0Decoder_ReadPacketMessages_Debug, messageCount));
+            #endif
 
             for (var i = 0; i < messageCount; i++)
             {

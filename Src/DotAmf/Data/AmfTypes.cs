@@ -75,7 +75,7 @@ namespace DotAmf.Data
 
         public bool Contains(KeyValuePair<string, object> item)
         {
-            return Properties.ContainsValue(item.Value);
+            return Properties.ContainsKey(item.Key);
         }
 
         public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex)

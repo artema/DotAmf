@@ -189,13 +189,61 @@
   <data name="AmfPacketWriter_Write_PacketEmpty" xml:space="preserve">
     <value>Packet contains no messages.</value>
   </data>
-	<data name="AmfPacketEncoder_EncodingError">
-		<value xml:space="preserve">Error during serialization. Check inner exception for details.</value>
+  <data name="AmfPacketEncoder_EncodingError" xml:space="preserve">
+    <value>Error during serialization. Check inner exception for details.</value>
+  </data>
+  <data name="DataContractAmfSerializer_WriteObject_ErrorWritingAmf" xml:space="preserve">
+    <value>Error writing AMF data.</value>
+  </data>
+  <data name="DataContractAmfSerializer_WriteObject_ContractsError" xml:space="preserve">
+    <value>Unable to serialize data contracts.</value>
+  </data>
+  <data name="Amf3Decoder_ReadValue_TypeMarkerNotFound" xml:space="preserve">
+    <value>Value type marker not found at position {0}.</value>
+  </data>
+  <data name="Amf3Decoder_ReadValue_Debug" xml:space="preserve">
+    <value>Reading value of type {0} from position {1}.</value>
+  </data>
+  <data name="Amf0Decoder_ReadPacketHeaders_Debug" xml:space="preserve">
+    <value>Found {0} message headers.</value>
+  </data>
+  <data name="Amf0Decoder_ReadPacketMessages_Debug" xml:space="preserve">
+    <value>Found {0} message bodies.</value>
+  </data>
+  <data name="AbstractAmfDecoder_CurrentAmfVersion_Debug" xml:space="preserve">
+    <value>Switching current AMF context to {0}.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_Name" xml:space="preserve">
+    <value>Found type traits for type '{0}'.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_Members" xml:space="preserve">
+    <value>Type contains {0} members.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_Dynamic" xml:space="preserve">
+    <value>Type is dynamic.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_Externizable" xml:space="preserve">
+    <value>Type is externizable.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_ReadingField" xml:space="preserve">
+    <value>Trying to read a value for a member #{0} '{1}'.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_ReadingDynamic" xml:space="preserve">
+    <value>Reading dynamic type members.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_DynamicEnd" xml:space="preserve">
+    <value>Dynamic portion of the type has ended.</value>
+  </data>
+  <data name="Amf3Decoder_ReadObject_Debug_End" xml:space="preserve">
+    <value>Type has been read successfully.</value>
+  </data>
+	<data name="Amf3Decoder_ReadObject_Debug_ReadingDynamicField">
+		<value><![CDATA[Trying to read a value for a dynamic member '{0}'.]]></value>
 	</data>
-	<data name="DataContractAmfSerializer_WriteObject_ErrorWritingAmf">
-		<value xml:space="preserve">Error writing AMF data.</value>
+	<data name="Amf3Decoder_ReadValue_End">
+		<value xml:space="preserve">Finished reading value of type {0} on position {1}.</value>
 	</data>
-	<data name="DataContractAmfSerializer_WriteObject_ContractsError">
-		<value xml:space="preserve">Unable to serialize data contracts.</value>
+	<data name="Amf3Decoder_ReadValue_InvalidMarker.">
+		<value xml:space="preserve">Type marker not found at position {0}.</value>
 	</data>
 </root>

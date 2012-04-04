@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
@@ -105,10 +106,20 @@ namespace DotAmf.Decoder
             }
             catch (Exception e)
             {
-                throw new FormatException("Value type marker not found.", e);
+                #if DEBUG
+                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_InvalidMarker_, Reader.BaseStream.Position));
+                #endif
+
+                throw new FormatException(string.Format(Errors.Amf3Decoder_ReadValue_TypeMarkerNotFound, Reader.BaseStream.Position), e);
             }
 
-            return ReadValue(type);
+            var value = ReadValue(type);
+
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_End, type, Reader.BaseStream.Position));
+            #endif
+
+            return value;
         }
         #endregion
 
@@ -125,6 +136,10 @@ namespace DotAmf.Decoder
         /// <exception cref="SerializationException">Error during deserialization.</exception>
         public object ReadValue(Amf3TypeMarker type)
         {
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_Debug, type, Reader.BaseStream.Position));
+            #endif
+
             switch (type)
             {
                 case Amf3TypeMarker.Null:
@@ -446,27 +461,65 @@ namespace DotAmf.Decoder
                 SaveReference(traits);
             }
 
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_Name, traits.TypeName));
+
+            if (traits.IsDynamic)
+                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_Dynamic);
+            else if (traits.IsExternalizable)
+                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_Externizable);
+            else
+                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_Members, traits.ClassMembers.Length));
+            #endif
+
             var content = new Dictionary<string, object>();
+
+            #if DEBUG
+            var memberPosition = 0;
+            #endif
 
             //Read object's properties
             foreach (var classMember in traits.ClassMembers)
+            {
+                #if DEBUG
+                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingField, memberPosition, classMember));
+                memberPosition++;
+                #endif
+
                 content[classMember] = ReadValue();
+            }
 
             //Read dynamic properties too
             if (traits.IsDynamic)
             {
+                #if DEBUG
+                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamic);
+                #endif
+
                 var key = ReadString();
 
                 while (key != string.Empty)
                 {
+                    #if DEBUG
+                    Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamicField, key));
+                    #endif
+
                     var value = ReadValue();
                     content[key] = value;
                     key = ReadString();
                 }
+
+                #if DEBUG
+                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_DynamicEnd);
+                #endif
             }
 
             var result = new AmfObject { Traits = traits, Properties = content };
             SaveReference(result);
+
+            #if DEBUG
+            Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_End);
+            #endif
 
             return result;
         }

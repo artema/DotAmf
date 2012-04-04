@@ -6,6 +6,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
 using DotAmf.Data;
+using DotAmf.Serialization;
 
 namespace DotAmf.Encoder
 {
@@ -66,7 +67,7 @@ namespace DotAmf.Encoder
         private int? SaveReference(string value)
         {
             var index = _stringReferences.BinarySearch(value);
-            if (index != -1) return index;
+            if (index >= 0) return index;
 
             _stringReferences.Add(value);
             return null;
@@ -80,10 +81,11 @@ namespace DotAmf.Encoder
         /// or a position in reference list if the item has already been added.</returns>
         private int? SaveReference(AmfTypeTraits value)
         {
-            var index = _traitReferences.BinarySearch(value);
-            if (index != -1) return index;
+            //There is currently no way to compare traits
+            //var index = _traitReferences.BinarySearch(value);
+            //if (index >= 0) return index;
 
-            _traitReferences.Add(value);
+            //_traitReferences.Add(value);
             return null;
         }
         #endregion
@@ -112,6 +114,14 @@ namespace DotAmf.Encoder
             if (type.IsValueType || type.IsEnum || type == typeof(string))
             {
                 PerformWrite(() => WritePrimitive(value));
+                return;
+            }
+
+            //A dictionary
+            if (type == typeof(Dictionary<string,object>))
+            {
+                var untypedObject = DataContractHelper.CreateDynamicObject((Dictionary<string, object>) value);
+                PerformWrite(() => Write(untypedObject));
                 return;
             }
 
@@ -522,6 +532,8 @@ namespace DotAmf.Encoder
                     WriteUtf8(member);
                     WriteValue(obj.Properties[member]);
                 }
+
+                WriteUtf8(string.Empty);
             }
         }
 

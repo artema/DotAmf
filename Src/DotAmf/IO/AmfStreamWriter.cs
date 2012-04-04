@@ -65,6 +65,7 @@ namespace DotAmf.IO
         /// </summary>
         public new void Dispose()
         {
+            BaseStream.Flush();
         }
         #endregion
     }

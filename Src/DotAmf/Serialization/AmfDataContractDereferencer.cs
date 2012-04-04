@@ -135,7 +135,7 @@ namespace DotAmf.Serialization
                 var result = new AmfObject { Traits = new AmfTypeTraits() };
                 var map = (Dictionary<string, object>)source;
                 result.Traits.TypeName = AmfTypeTraits.BaseTypeAlias;
-                result.Traits.ClassMembers = map.Keys.ToArray();
+                result.Traits.ClassMembers = new string[0];
                 result.Traits.IsDynamic = true;
 
                 result.Properties = new Dictionary<string, object>(map);
@@ -206,9 +206,7 @@ namespace DotAmf.Serialization
         /// </summary>
         static protected bool IsSerializableType(Type type)
         {
-            return (type.IsValueType ||
-                    type.IsArray ||
-                    type == typeof(Dictionary<string, object>));
+            return (type.IsValueType || type.IsArray || type == typeof(Dictionary<string, object>));
         }
         #endregion
 
@@ -241,7 +239,8 @@ namespace DotAmf.Serialization
             {
                 var type = obj.GetType();
 
-                if (IsSerializableType(type) || IsAmfType(type)) return obj;
+                if (IsSerializableType(type) || IsAmfType(type))
+                    return obj;
 
                 return _objectFactoryMethod.Invoke(obj);
             }
