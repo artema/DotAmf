@@ -9,5 +9,10 @@
         /// Messaging version.
         /// </summary>
         public uint MessagingVersion;
+
+        /// <summary>
+        /// Include exception details in faults.
+        /// </summary>
+        public bool ExceptionDetailInFaults;
     }
 }

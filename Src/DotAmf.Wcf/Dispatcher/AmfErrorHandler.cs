@@ -6,6 +6,7 @@ using System.ServiceModel.Channels;
 using System.ServiceModel.Dispatcher;
 using DotAmf.Data;
 using DotAmf.ServiceModel.Channels;
+using DotAmf.ServiceModel.Configuration;
 using DotAmf.ServiceModel.Messaging;
 using AmfMessageHeader = DotAmf.ServiceModel.Messaging.MessageHeader;
 
@@ -16,6 +17,24 @@ namespace DotAmf.ServiceModel.Dispatcher
     /// </summary>
     sealed internal class AmfErrorHandler : IErrorHandler
     {
+        #region .ctor
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="capabilities">Endpoint capabilities.</param>
+        public AmfErrorHandler(AmfEndpointCapabilities capabilities)
+        {
+            _capabilities = capabilities;
+        }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Endpoint capabilities.
+        /// </summary>
+        private readonly AmfEndpointCapabilities _capabilities;
+        #endregion
+
         #region IErrorHandler implementation
         public bool HandleError(Exception error)
         {
@@ -42,8 +61,23 @@ namespace DotAmf.ServiceModel.Dispatcher
                     acknowledge.Headers[AmfMessageHeader.StatusCode] = (int)HttpStatusCode.BadRequest;
 
                     acknowledge.FaultCode = ErrorMessageFaultCode.DeliveryInDoubt;
-                    acknowledge.FaultString = error.Message;
-                    acknowledge.FaultDetail = error.StackTrace;
+
+                    if (_capabilities.ExceptionDetailInFaults)
+                    {
+                        acknowledge.FaultString = error.Message;
+                        acknowledge.FaultDetail = error.StackTrace;
+                    }
+
+                    //Get FaultException's detail object, if any
+                    if(error is FaultException)
+                    {
+                        var type = error.GetType();
+
+                        if (type.IsGenericType && type.GetGenericTypeDefinition().Equals(typeof(FaultException<>)))
+                        {
+                            acknowledge.ExtendedData = type.GetProperty("Detail").GetValue(error, null);
+                        }
+                    }
 
                     replyMessage.Target = AmfOperationUtil.CreateStatusReplyTarget(requestMessage);
                     replyMessage.Data = acknowledge;

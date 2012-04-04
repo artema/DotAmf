@@ -12,24 +12,6 @@ namespace DotAmf.ServiceModel.Description
     /// </summary>
     sealed public class AmfEndpointBehavior : IEndpointBehavior
     {
-        #region .ctor
-        public AmfEndpointBehavior()
-        {
-            //Create endpoint capabilities descriptor
-            _capabilities = new AmfEndpointCapabilities
-            {
-                MessagingVersion = 1
-            };
-        }
-        #endregion
-
-        #region Data
-        /// <summary>
-        /// Endpoint capabilities.
-        /// </summary>
-        private readonly AmfEndpointCapabilities _capabilities;
-        #endregion
-
         #region Overriden methods
         /// <summary>
         /// Implements the <c>IEndpointBehavior.ApplyDispatchBehavior</c> method to support modification or extension of the client across an endpoint.
@@ -38,9 +20,16 @@ namespace DotAmf.ServiceModel.Description
         /// <param name="endpointDispatcher">The endpoint dispatcher to which the behavior is applied.</param>
         public void ApplyDispatchBehavior(ServiceEndpoint endpoint, EndpointDispatcher endpointDispatcher)
         {
+            //Create endpoint capabilities descriptor
+            var capabilities = new AmfEndpointCapabilities
+            {
+                MessagingVersion = 1,
+                ExceptionDetailInFaults = endpointDispatcher.ChannelDispatcher.IncludeExceptionDetailInFaults
+            };
+
             //Create endpoint context
             var endpointContext = new AmfEndpointContext(endpoint);
-
+            
             //Create AMF message filter
             endpointDispatcher.ContractFilter = new AmfMessageFilter();
 
@@ -51,7 +40,7 @@ namespace DotAmf.ServiceModel.Description
             endpointDispatcher.DispatchRuntime.MessageInspectors.Add(new AmfMessageInspector(endpointContext));
 
             //Create error handler
-            endpointDispatcher.ChannelDispatcher.ErrorHandlers.Add(new AmfErrorHandler());
+            endpointDispatcher.ChannelDispatcher.ErrorHandlers.Add(new AmfErrorHandler(capabilities));
 
             //Apply regular AMF operation behavior
             foreach (var descriptor in endpoint.Contract.Operations)
@@ -67,7 +56,7 @@ namespace DotAmf.ServiceModel.Description
                                                          AmfOperationKind.Command,
                                                          null)
             {
-                Invoker = new AmfCommandInvoker(_capabilities),
+                Invoker = new AmfCommandInvoker(capabilities),
                 Formatter = new AmfCommandFormatter(),
             };
             endpointDispatcher.DispatchRuntime.Operations.Add(commandOperation);

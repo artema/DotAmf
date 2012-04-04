@@ -46,11 +46,19 @@ namespace DotAmf.ServiceModel.Dispatcher
             //Add endpoint contract's types
             var types = new List<Type>();
 
+            //Get return types and methods parameters
             foreach (var method in endpoint.Contract.Operations.Select(operation => operation.SyncMethod))
             {
                 types.Add(method.ReturnType);
                 types.AddRange(method.GetParameters().Select(param => param.ParameterType));
             }
+
+            //Get operation fault contracts
+            var faultTypes = from operation in endpoint.Contract.Operations
+                             from fault in operation.Faults
+                             select fault.DetailType;
+
+            types.AddRange(faultTypes);
 
             foreach (var type in types)
             {
