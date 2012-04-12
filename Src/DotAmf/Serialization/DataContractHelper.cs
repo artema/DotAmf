@@ -36,7 +36,7 @@ namespace DotAmf.Serialization
         /// </summary>
         /// <param name="type">Data contract type.</param>
         /// <returns>Alias name.</returns>
-        /// <exception cref="ArgumentException">Type is not a valid AMF data contract.</exception>
+        /// <exception cref="ArgumentException">Type is not a valid data contract.</exception>
         static public string GetContractAlias(Type type)
         {
             if (type == null) throw new ArgumentNullException("type");
@@ -77,8 +77,8 @@ namespace DotAmf.Serialization
                 pair.property.SetValue(instance, pair.value, null);
 
             var fieldMap = from data in GetContractFields(type)
-                              join prop in properties on data.Key equals prop.Key
-                              select new { field = data.Value, value = prop.Value };
+                           join prop in properties on data.Key equals prop.Key
+                           select new { field = data.Value, value = prop.Value };
 
             foreach (var pair in fieldMap)
                 pair.field.SetValue(instance, pair.value);
@@ -101,7 +101,7 @@ namespace DotAmf.Serialization
                              select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
 
             var fields = from data in GetContractFields(type)
-                             select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance));
+                         select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance));
 
             var contents = properties.Concat(fields);
 
@@ -118,7 +118,7 @@ namespace DotAmf.Serialization
         /// </summary>
         /// <param name="source">Source object's properties.</param>
         /// <returns></returns>
-        static public AmfObject CreateDynamicObject(IDictionary<string,object> source)
+        static public AmfObject CreateDynamicObject(IDictionary<string, object> source)
         {
             if (source == null) throw new ArgumentNullException("source");
 
@@ -134,6 +134,23 @@ namespace DotAmf.Serialization
             };
 
             return obj;
+        }
+
+        /// <summary>
+        /// Get contract members from a contract type.
+        /// </summary>
+        static public IEnumerable<Type> GetContractMembers(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+
+
+            var properties = from pair in GetContractProperties(type)
+                             select pair.Value.PropertyType;
+
+            var fields = from pair in GetContractFields(type)
+                         select pair.Value.FieldType;
+
+            return properties.Concat(fields).Distinct();
         }
         #endregion
 

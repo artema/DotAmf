@@ -127,7 +127,7 @@
     <value>Alias '{0}' is already taken by another type.</value>
   </data>
   <data name="AmfContractResolver_TypeRegistrationError" xml:space="preserve">
-    <value>Unable to register type.</value>
+    <value>Unable to register type '{0}'.</value>
   </data>
   <data name="Amf3Deserializer_ReadString_NegativeLength" xml:space="preserve">
     <value>Length cannot be negative.</value>
@@ -238,7 +238,7 @@
     <value>Type has been read successfully.</value>
   </data>
 	<data name="Amf3Decoder_ReadObject_Debug_ReadingDynamicField">
-		<value><![CDATA[Trying to read a value for a dynamic member '{0}'.]]></value>
+    <value>Trying to read a value for a dynamic member '{0}'.</value>
 	</data>
 	<data name="Amf3Decoder_ReadValue_End">
 		<value xml:space="preserve">Finished reading value of type {0} on position {1}.</value>

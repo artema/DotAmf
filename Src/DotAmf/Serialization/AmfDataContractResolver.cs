@@ -77,8 +77,8 @@ namespace DotAmf.Serialization
             }
 
             //Look for a known type
-            var res = knownTypeResolver.ResolveName(typeName, typeNamespace, declaredType, null);
-            return res;
+            var result = knownTypeResolver.ResolveName(typeName, typeNamespace, declaredType, null);
+            return result;
         }
 
         public override bool TryResolveType(Type type, Type declaredType, DataContractResolver knownTypeResolver, out XmlDictionaryString typeName, out XmlDictionaryString typeNamespace)
@@ -109,8 +109,8 @@ namespace DotAmf.Serialization
             }
 
             //Look for a known type
-            var res = knownTypeResolver.TryResolveType(type, declaredType, null, out typeName, out typeNamespace);
-            return res;
+            var result = knownTypeResolver.TryResolveType(type, declaredType, null, out typeName, out typeNamespace);
+            return result;
         }
         #endregion
 
@@ -266,6 +266,26 @@ namespace DotAmf.Serialization
 
         #region Register contracts
         /// <summary>
+        /// Check if type is registered as a contract.
+        /// </summary>
+        /// <param name="type">Type to check.</param>
+        public bool ContractRegistered(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+            return _contractsRegistry.ContainsValue(type);
+        }
+
+        /// <summary>
+        /// Check if alias is taken.
+        /// </summary>
+        /// <param name="alias">Alias to check.</param>
+        public bool AliasRegistered(string alias)
+        {
+            if (alias == null) throw new ArgumentNullException("alias");
+            return _contractsRegistry.ContainsKey(alias);
+        }
+
+        /// <summary>
         /// Register data contract.
         /// </summary>
         /// <param name="type">Type to register.</param>
@@ -277,7 +297,7 @@ namespace DotAmf.Serialization
 
             //Try to register the type
             if (!TryToAddType(type))
-                throw new Exception(Errors.AmfContractResolver_TypeRegistrationError);
+                throw new Exception(string.Format(Errors.AmfContractResolver_TypeRegistrationError, type.FullName));
         }
 
         /// <summary>
@@ -328,10 +348,25 @@ namespace DotAmf.Serialization
         /// otherwise returns <c>false</c>.</returns>
         private bool TryToAddType(Type type, string alias = null)
         {
+            if (ContractRegistered(type)) return false;
+            if (alias != null && AliasRegistered(alias)) return false;
+
             try
             {
                 var defaultAlias = DataContractHelper.GetContractAlias(type);
+
+                alias = alias ?? defaultAlias;
+                if (AliasRegistered(alias)) return false;
+
                 _contractsRegistry[alias ?? defaultAlias] = type;
+
+                var subtypes = DataContractHelper.GetContractMembers(type);
+
+                foreach (var subtype in subtypes)
+                {
+                    if (ContractRegistered(subtype)) continue;
+                    TryToAddType(subtype);
+                }
 
                 return true;
             }

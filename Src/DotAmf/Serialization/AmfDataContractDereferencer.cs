@@ -77,7 +77,8 @@ namespace DotAmf.Serialization
             }
 
             //Look for a known type
-            return knownTypeResolver.ResolveName(typeName, typeNamespace, declaredType, null);
+            var result = knownTypeResolver.ResolveName(typeName, typeNamespace, declaredType, null);
+            return result;
         }
 
         public override bool TryResolveType(Type type, Type declaredType, DataContractResolver knownTypeResolver, out XmlDictionaryString typeName, out XmlDictionaryString typeNamespace)
@@ -95,8 +96,12 @@ namespace DotAmf.Serialization
             //Treat all arrays as untyped
             if (type.IsArray) type = typeof(object[]);
 
+            //Convert enums to plain integers
+            if (type.IsEnum) type = Enum.GetUnderlyingType(type);
+
             //Look for a known type
-            return knownTypeResolver.TryResolveType(type, declaredType, null, out typeName, out typeNamespace);
+            var result = knownTypeResolver.TryResolveType(type, declaredType, null, out typeName, out typeNamespace);
+            return result;
         }
         #endregion
 

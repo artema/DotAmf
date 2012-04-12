@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel.Description;
@@ -60,15 +61,31 @@ namespace DotAmf.ServiceModel.Dispatcher
 
             types.AddRange(faultTypes);
 
+            //Handle complex types
+            for (var i = 0; i < types.Count; i++)
+            {
+                var type = types[i];
+
+                //Type is an array
+                if(type.IsArray && type.HasElementType)
+                    types[i] = type.GetElementType();
+            }
+
+            //Remove duplicates
+            types = types.Distinct().ToList();
+
+            //Try to register all types
             foreach (var type in types)
             {
+                if (context.ContractRegistered(type)) continue;
+
                 try
                 {
                     context.AddContract(type);
                 }
                 catch
                 {
-                    //Unable to add type
+                    //Unable to add a type
                     continue;
                 }
             }

@@ -268,7 +268,7 @@ namespace DotAmf {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to register type..
+        ///   Looks up a localized string similar to Unable to register type &apos;{0}&apos;..
         /// </summary>
         internal static string AmfContractResolver_TypeRegistrationError {
             get {

@@ -89,7 +89,7 @@ namespace DotAmf.ServiceModel.Messaging
     /// <summary>
     /// Command message operation.
     /// </summary>
-    [DataContract]
+    [DataContract(Name = "flex.messaging.messages.CommandMessageOperation")]
     public enum CommandMessageOperation
     {
         /// <summary>

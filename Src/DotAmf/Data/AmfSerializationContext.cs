@@ -71,6 +71,15 @@ namespace DotAmf.Data
 
         #region Public methods
         /// <summary>
+        /// Check if type is registered as a contract.
+        /// </summary>
+        /// <param name="type">Type to check.</param>
+        public bool ContractRegistered(Type type)
+        {
+            return _contractResolver.ContractRegistered(type);
+        }
+
+        /// <summary>
         /// Register data contract.
         /// </summary>
         /// <param name="type">Type to register.</param>
