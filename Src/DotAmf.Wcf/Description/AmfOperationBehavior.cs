@@ -20,7 +20,7 @@ namespace DotAmf.ServiceModel.Description
         /// for the operation described by <c>operationDescription</c>.</param>
         public void ApplyDispatchBehavior(OperationDescription operationDescription, DispatchOperation dispatchOperation)
         {
-            dispatchOperation.Formatter = new AmfGenericOperationFormatter(dispatchOperation.Formatter);
+            dispatchOperation.Formatter = new AmfGenericOperationFormatter();
         }
 
         public void AddBindingParameters(OperationDescription operationDescription, BindingParameterCollection bindingParameters)

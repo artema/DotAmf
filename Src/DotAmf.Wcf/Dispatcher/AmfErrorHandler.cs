@@ -7,6 +7,7 @@ using System.ServiceModel.Dispatcher;
 using DotAmf.Data;
 using DotAmf.ServiceModel.Channels;
 using DotAmf.ServiceModel.Configuration;
+using DotAmf.ServiceModel.Faults;
 using DotAmf.ServiceModel.Messaging;
 using AmfMessageHeader = DotAmf.ServiceModel.Messaging.MessageHeader;
 
@@ -43,6 +44,9 @@ namespace DotAmf.ServiceModel.Dispatcher
 
         public void ProvideFault(Exception error, MessageVersion version, ref Message fault)
         {
+            //An internal server error occured
+            if (OperationContext.Current == null) return;
+
             //An AMF operation
             if (OperationContext.Current.IncomingMessageProperties.ContainsKey(MessagingHeaders.InvokerMessageBody))
             {
@@ -58,13 +62,17 @@ namespace DotAmf.ServiceModel.Dispatcher
                     var acknowledge = AmfOperationUtil.BuildErrorMessage(rpcMessage);
                     if (acknowledge.Headers == null) acknowledge.Headers = new Dictionary<string, object>();
 
-                    acknowledge.Headers[AmfMessageHeader.StatusCode] = (int)HttpStatusCode.BadRequest;
+                    if (error is AmfOperationNotFoundException)
+                        acknowledge.Headers[AmfMessageHeader.StatusCode] = (int)HttpStatusCode.NotFound;
+                    else
+                        acknowledge.Headers[AmfMessageHeader.StatusCode] = (int)HttpStatusCode.BadRequest;
 
                     acknowledge.FaultCode = ErrorMessageFaultCode.DeliveryInDoubt;
 
+                    acknowledge.FaultString = error.Message;
+
                     if (_capabilities.ExceptionDetailInFaults)
                     {
-                        acknowledge.FaultString = error.Message;
                         acknowledge.FaultDetail = error.StackTrace;
                     }
 

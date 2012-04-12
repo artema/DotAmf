@@ -60,6 +60,17 @@ namespace DotAmf.ServiceModel.Description
                 Formatter = new AmfCommandFormatter(),
             };
             endpointDispatcher.DispatchRuntime.Operations.Add(commandOperation);
+
+            //Fault operation
+            var faultOperation = new DispatchOperation(endpointDispatcher.DispatchRuntime,
+                                                         AmfOperationKind.Fault,
+                                                         AmfOperationKind.Fault,
+                                                         null)
+            {
+                Invoker = new AmfFaultInvoker(capabilities),
+                Formatter = new AmfGenericOperationFormatter()
+            };
+            endpointDispatcher.DispatchRuntime.Operations.Add(faultOperation);
         }
 
         public void AddBindingParameters(ServiceEndpoint endpoint, BindingParameterCollection bindingParameters)

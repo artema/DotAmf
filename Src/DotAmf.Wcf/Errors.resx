@@ -113,4 +113,13 @@
 	<data name="AmfCommandInvoker_ProcessCommand_OperationNotSupported">
 		<value><![CDATA[Operation '{0}' is not supported.]]></value>
 	</data>
+	<data name="AmfFaultInvoker_Invoke_OperationNotFound">
+		<value xml:space="preserve"><![CDATA[Operation '{0}' not found.]]></value>
+	</data>
+	<data name="AmfGenericOperationFormatter_DeserializeRequest_InvalidOperation">
+		<value xml:space="preserve">Invalid AMF operation.</value>
+	</data>
+	<data name="AmfGenericOperationFormatter_SerializeReply_InvalidOperation">
+		<value xml:space="preserve">Invalid AMF operation.</value>
+	</data>
 </root>

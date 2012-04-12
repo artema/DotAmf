@@ -18,16 +18,9 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// </summary>
         /// <param name="capabilities">Endpoint capabilities.</param>
         public AmfCommandInvoker(AmfEndpointCapabilities capabilities)
+            : base(capabilities)
         {
-            _capabilities = capabilities;
         }
-        #endregion
-
-        #region Data
-        /// <summary>
-        /// Endpoint capabilities.
-        /// </summary>
-        private readonly AmfEndpointCapabilities _capabilities;
         #endregion
 
         #region IOperationInvoker implementation
@@ -78,7 +71,7 @@ namespace DotAmf.ServiceModel.Dispatcher
             var acknowledge = AmfOperationUtil.BuildAcknowledgeMessage(message);
             acknowledge.Headers = new Dictionary<string, object>
                                       {
-                                          {CommandMessageHeader.MessagingVersion, _capabilities.MessagingVersion}
+                                          {CommandMessageHeader.MessagingVersion, Capabilities.MessagingVersion}
                                       };
 
             return AmfOperationUtil.BuildMessageReply(request, acknowledge);

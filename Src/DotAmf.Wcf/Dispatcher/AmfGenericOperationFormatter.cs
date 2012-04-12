@@ -14,21 +14,6 @@ namespace DotAmf.ServiceModel.Dispatcher
     /// </summary>
     sealed internal class AmfGenericOperationFormatter : IDispatchMessageFormatter
     {
-        #region .ctor
-        public AmfGenericOperationFormatter(IDispatchMessageFormatter formatter)
-        {
-            if (formatter == null) throw new ArgumentNullException("formatter");
-            _formatter = formatter;
-        }
-        #endregion
-
-        #region Data
-        /// <summary>
-        /// Operation formatter.
-        /// </summary>
-        private readonly IDispatchMessageFormatter _formatter;
-        #endregion
-
         #region IDispatchMessageFormatter Members
         /// <summary>
         /// Deserializes a message into an array of parameters.
@@ -39,35 +24,31 @@ namespace DotAmf.ServiceModel.Dispatcher
         {
             var amfrequest = message as AmfGenericMessage;
 
-            //An AMF operation
-            if (amfrequest != null)
-            {
-                OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody] = amfrequest.AmfMessage;
-                OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageHeaders] = amfrequest.AmfHeaders;
+            if (amfrequest == null)
+                throw new OperationCanceledException(Errors.AmfGenericOperationFormatter_DeserializeRequest_InvalidOperation);
 
-                var rpcMessage = amfrequest.AmfMessage.Data as RemotingMessage;
+            OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageBody] = amfrequest.AmfMessage;
+            OperationContext.Current.IncomingMessageProperties[MessagingHeaders.InvokerMessageHeaders] = amfrequest.AmfHeaders;
 
-                if (rpcMessage != null)
-                    OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage] = rpcMessage;
+            var rpcMessage = amfrequest.AmfMessage.Data as RemotingMessage;
 
-                object[] input;
+            if (rpcMessage != null)
+                OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage] = rpcMessage;
 
-                if (rpcMessage != null)
-                    input = rpcMessage.Body as object[];
-                else
-                    input = amfrequest.AmfMessage.Data as object[];
+            object[] input;
 
-                if (input == null || input.Length != parameters.Length)
-                    throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
-
-                for (var i = 0; i < input.Length; i++)
-                    parameters[i] = input[i];
-            }
-            //A regular operation
+            if (rpcMessage != null)
+                input = rpcMessage.Body as object[];
             else
-            {
-                _formatter.DeserializeRequest(message, parameters);
-            }
+                input = amfrequest.AmfMessage.Data as object[];
+
+            if (input != null && input.Length == 0) return;
+
+            if (input == null || input.Length != parameters.Length)
+                throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
+
+            for (var i = 0; i < input.Length; i++)
+                parameters[i] = input[i];
         }
 
         /// <summary>
@@ -105,8 +86,7 @@ namespace DotAmf.ServiceModel.Dispatcher
                 return new AmfGenericMessage(replyHeaders, replyMessage);
             }
 
-            //A regular operation
-            return _formatter.SerializeReply(messageVersion, parameters, result);
+            throw new OperationCanceledException(Errors.AmfGenericOperationFormatter_SerializeReply_InvalidOperation);
         }
         #endregion
     }

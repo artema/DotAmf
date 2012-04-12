@@ -14,5 +14,10 @@
         /// Command.
         /// </summary>
         public const string Command = "@AmfCommand";
+
+        /// <summary>
+        /// Fault.
+        /// </summary>
+        public const string Fault = "@AmfFault";
     }
 }

@@ -69,8 +69,8 @@ namespace DotAmf.ServiceModel.Dispatcher
                     {
                         var operation = ((RemotingMessage)flexmessage).Operation;
                         return EndpointHasOperation(_context.ServiceEndpoint, operation) 
-                            ? operation 
-                            : null;
+                            ? operation
+                            : AmfOperationKind.Fault;
                     }
 
                     //A Flex command message
@@ -84,7 +84,7 @@ namespace DotAmf.ServiceModel.Dispatcher
             //If it's not a Flex message, then do it the old way
             return EndpointHasOperation(_context.ServiceEndpoint, amfMessage.AmfMessage.Target) 
                 ? amfMessage.AmfMessage.Target
-                : null;
+                : AmfOperationKind.Fault;
         }
         #endregion
 

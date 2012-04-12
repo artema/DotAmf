@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ServiceModel.Dispatcher;
+using DotAmf.ServiceModel.Configuration;
 
 namespace DotAmf.ServiceModel.Dispatcher
 {
@@ -8,6 +9,24 @@ namespace DotAmf.ServiceModel.Dispatcher
     /// </summary>
     abstract internal class AmfOperationInvoker : IOperationInvoker
     {
+        #region .ctor
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="capabilities">Endpoint capabilities.</param>
+        protected AmfOperationInvoker(AmfEndpointCapabilities capabilities)
+        {
+            Capabilities = capabilities;
+        }
+        #endregion
+
+        #region Data
+        /// <summary>
+        /// Endpoint capabilities.
+        /// </summary>
+        protected readonly AmfEndpointCapabilities Capabilities;
+        #endregion
+
         #region IOperationInvoker implementation
         /// <summary>
         /// Returns an <c>System.Array</c> of parameter objects.

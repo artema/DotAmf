@@ -82,11 +82,13 @@
     <Compile Include="Dispatcher\AmfOperationUtil.cs" />
     <Compile Include="Dispatcher\AmfCommandFormatter.cs" />
     <Compile Include="Dispatcher\AmfCommandInvoker.cs" />
+    <Compile Include="Dispatcher\AmfFaultInvoker.cs" />
     <Compile Include="Errors.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Errors.resx</DependentUpon>
     </Compile>
+    <Compile Include="Faults\AmfOperationNotFoundException.cs" />
     <Compile Include="Messaging\AbstractMessage.cs" />
     <Compile Include="Messaging\AcknowledgeMessage.cs" />
     <Compile Include="Messaging\CommandMessage.cs" />
@@ -105,6 +107,7 @@
     <EmbeddedResource Include="Errors.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Errors.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

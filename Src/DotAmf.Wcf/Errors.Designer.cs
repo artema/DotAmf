@@ -88,11 +88,38 @@ namespace DotAmf.ServiceModel {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation &apos;{0}&apos; not found..
+        /// </summary>
+        internal static string AmfFaultInvoker_Invoke_OperationNotFound {
+            get {
+                return ResourceManager.GetString("AmfFaultInvoker_Invoke_OperationNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Argument count mismatch..
         /// </summary>
         internal static string AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch {
             get {
                 return ResourceManager.GetString("AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid AMF operation..
+        /// </summary>
+        internal static string AmfGenericOperationFormatter_DeserializeRequest_InvalidOperation {
+            get {
+                return ResourceManager.GetString("AmfGenericOperationFormatter_DeserializeRequest_InvalidOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid AMF operation..
+        /// </summary>
+        internal static string AmfGenericOperationFormatter_SerializeReply_InvalidOperation {
+            get {
+                return ResourceManager.GetString("AmfGenericOperationFormatter_SerializeReply_InvalidOperation", resourceCulture);
             }
         }
         
