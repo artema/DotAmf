@@ -26,15 +26,5 @@ namespace DotAmf.Encoder
         /// <param name="value">Value to write.</param>
         /// <exception cref="SerializationException">Error during serialization.</exception>
         void WriteValue(object value);
-
-        /// <summary>
-        /// Clear stored references.
-        /// </summary>
-        void ClearReferences();
-
-        /// <summary>
-        /// AMF encoding context switch event.
-        /// </summary>
-        event EncodingContextSwitch ContextSwitch;
     }
 }

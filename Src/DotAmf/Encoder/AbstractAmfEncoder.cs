@@ -76,7 +76,8 @@ namespace DotAmf.Encoder
             {
                 if (_currentAmfVersion == value) return;
                 _currentAmfVersion = value;
-                OnContextSwitchEvent(new EncodingContextSwitchEventArgs(_currentAmfVersion));
+
+                ClearReferences();
             }
         }
         #endregion
@@ -92,8 +93,6 @@ namespace DotAmf.Encoder
         public abstract void WritePacketBody(AmfMessage message);
 
         public abstract void WriteValue(object value);
-
-        public event EncodingContextSwitch ContextSwitch;
         #endregion
 
         #region Protected methods
@@ -112,58 +111,8 @@ namespace DotAmf.Encoder
             return null;
         }
         #endregion
-
-        #region Event invokers
-        private void OnContextSwitchEvent(EncodingContextSwitchEventArgs e)
-        {
-            if (ContextSwitch != null) ContextSwitch(this, e);
-        }
-        #endregion
         
         #region Helper methods
-        /// <summary>
-        /// Check if type is a numeric type.
-        /// </summary>
-        protected static bool IsNumericType(Type type, out bool isInteger)
-        {
-            isInteger = false;
-
-            if (type == null) return false;
-
-            switch (Type.GetTypeCode(type))
-            {
-                case TypeCode.Byte:
-                case TypeCode.Int16:
-                case TypeCode.Int32:
-                case TypeCode.Int64:
-                case TypeCode.SByte:
-                case TypeCode.UInt16:
-                case TypeCode.UInt32:
-                case TypeCode.UInt64:
-                    {
-                        isInteger = true;
-                        return true;
-                    }
-
-                case TypeCode.Decimal:
-                case TypeCode.Double:
-                case TypeCode.Single:
-                    {
-                        return true;
-                    }
-
-                case TypeCode.Object:
-                    {
-                        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-                            return IsNumericType(Nullable.GetUnderlyingType(type), out isInteger);
-
-                        return false;
-                    }
-            }
-
-            return false;
-        }
-
         /// <summary>
         /// Convert a <c>DateTime</c> to a UNIX timestamp in milliseconds.
         /// </summary>

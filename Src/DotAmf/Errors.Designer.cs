@@ -70,6 +70,33 @@ namespace DotAmf {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to AMF version is not supported: {0}.
+        /// </summary>
+        internal static string Amf0Decoder_ReadAmfValue_AmfVersionNotSupported {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadAmfValue_AmfVersionNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value type marker not found..
+        /// </summary>
+        internal static string Amf0Decoder_ReadAmfValue_TypeMarkerMissing {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadAmfValue_TypeMarkerMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid array length..
+        /// </summary>
+        internal static string Amf0Decoder_ReadEcmaArray_InvalidLength {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadEcmaArray_InvalidLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Found {0} message headers..
         /// </summary>
         internal static string Amf0Decoder_ReadPacketHeaders_Debug {
@@ -84,6 +111,42 @@ namespace DotAmf {
         internal static string Amf0Decoder_ReadPacketMessages_Debug {
             get {
                 return ResourceManager.GetString("Amf0Decoder_ReadPacketMessages_Debug", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to deserialize properties map..
+        /// </summary>
+        internal static string Amf0Decoder_ReadPropertiesMap_UnableToDeserialize {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadPropertiesMap_UnableToDeserialize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unexpected object end..
+        /// </summary>
+        internal static string Amf0Decoder_ReadPropertiesMap_UnexpectedObjectEnd {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadPropertiesMap_UnexpectedObjectEnd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Referenced object #{0} not found..
+        /// </summary>
+        internal static string Amf0Decoder_ReadReference_BadIndex {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadReference_BadIndex", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown type with type marker &apos;{0}&apos;..
+        /// </summary>
+        internal static string Amf0Decoder_ReadValue_UnknownType {
+            get {
+                return ResourceManager.GetString("Amf0Decoder_ReadValue_UnknownType", resourceCulture);
             }
         }
         
@@ -216,9 +279,9 @@ namespace DotAmf {
         /// <summary>
         ///   Looks up a localized string similar to Type marker not found at position {0}..
         /// </summary>
-        internal static string Amf3Decoder_ReadValue_InvalidMarker_ {
+        internal static string Amf3Decoder_ReadValue_InvalidMarker {
             get {
-                return ResourceManager.GetString("Amf3Decoder_ReadValue_InvalidMarker.", resourceCulture);
+                return ResourceManager.GetString("Amf3Decoder_ReadValue_InvalidMarker", resourceCulture);
             }
         }
         

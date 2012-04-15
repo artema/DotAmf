@@ -48,6 +48,7 @@
     <Compile Include="Data\AmfPacket.cs" />
     <Compile Include="Data\AmfVersion.cs" />
     <Compile Include="Data\AmfMessage.cs" />
+    <Compile Include="Data\AmfxContent.cs" />
     <Compile Include="Errors.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -57,18 +58,14 @@
     <Compile Include="IO\AmfStreamReader.cs" />
     <Compile Include="IO\ByteConverter.cs" />
     <Compile Include="Encoder\Amf0Encoder.cs" />
-    <Compile Include="Serialization\AmfDataContractResolver.cs" />
     <Compile Include="Decoder\AbstractAmfDecoder.cs" />
     <Compile Include="Decoder\AmfPacketDecoder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Decoder\Amf0Decoder.cs" />
     <Compile Include="Decoder\Amf3Decoder.cs" />
-    <Compile Include="Data\AmfSerializationContext.cs" />
-    <Compile Include="Data\ContextSwitchEvent.cs" />
     <Compile Include="Encoder\AbstractAmfEncoder.cs" />
     <Compile Include="Encoder\Amf3Encoder.cs" />
     <Compile Include="Encoder\AmfPacketEncoder.cs" />
-    <Compile Include="Serialization\AmfDataContractDereferencer.cs" />
     <Compile Include="Serialization\DataContractAmfSerializer.cs" />
     <Compile Include="Encoder\IAmfEncoder.cs" />
     <Compile Include="Decoder\IAmfDecoder.cs" />

@@ -1,10 +1,12 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace DotAmf.Data
 {
     /// <summary>
     /// AMF packet.
     /// </summary>
+    [DataContract(Name = "#AmfPacket", Namespace = "http://dotamf.net/")]
     sealed public class AmfPacket
     {
         #region .ctor

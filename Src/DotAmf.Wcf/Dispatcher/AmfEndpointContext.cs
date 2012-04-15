@@ -1,9 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.ServiceModel.Description;
 using DotAmf.Data;
+using DotAmf.Serialization;
 using DotAmf.ServiceModel.Messaging;
 
 namespace DotAmf.ServiceModel.Dispatcher
@@ -16,33 +17,45 @@ namespace DotAmf.ServiceModel.Dispatcher
         #region .ctor
         public AmfEndpointContext(ServiceEndpoint endpoint)
         {
-            ServiceEndpoint = endpoint;
-            AmfSerializationContext = new AmfSerializationContext();
+            if (endpoint == null) throw new ArgumentNullException("endpoint");
 
-            ResolveContracts(ServiceEndpoint, AmfSerializationContext);
+            _contracts = new List<Type>();
+            ResolveContracts(endpoint);
+
+            ServiceEndpoint = endpoint;
+            AmfSerializer = new DataContractAmfSerializer(typeof(AmfPacket), _contracts);
         }
         #endregion
 
         #region Properties
         /// <summary>
-        /// Serive endpoint.
+        /// Registered contracts.
+        /// </summary>
+        private readonly List<Type> _contracts;
+
+        /// <summary>
+        /// Related service endpoint.
         /// </summary>
         public ServiceEndpoint ServiceEndpoint { get; private set; }
 
         /// <summary>
-        /// AMF serialization context.
+        /// AMF serializer.
         /// </summary>
-        public AmfSerializationContext AmfSerializationContext { get; private set; }
+        public DataContractAmfSerializer AmfSerializer { get; private set; }
         #endregion
 
-        #region Private methods
+        #region Data contracts
         /// <summary>
         /// Resolve endpoint contracts.
         /// </summary>
-        static private void ResolveContracts(ServiceEndpoint endpoint, AmfSerializationContext context)
+        private void ResolveContracts(ServiceEndpoint endpoint)
         {
             //Add default contracts
-            context.AddContract(typeof(AbstractMessage).Assembly);
+            AddContract(typeof(AbstractMessage));
+            AddContract(typeof(AcknowledgeMessage));
+            AddContract(typeof(CommandMessage));
+            AddContract(typeof(ErrorMessage));
+            AddContract(typeof(RemotingMessage));
 
             //Add endpoint contract's types
             var types = new List<Type>();
@@ -67,35 +80,62 @@ namespace DotAmf.ServiceModel.Dispatcher
                 var type = types[i];
 
                 //Type is an array
-                if(type.IsArray && type.HasElementType)
+                if (type.IsArray && type.HasElementType)
                     types[i] = type.GetElementType();
             }
 
-            //Remove duplicates
-            types = types.Distinct().ToList();
+            //Remove duplicates and invalid types
+            var validtypes = types
+                .Distinct()
+                .Where(IsValidDataContract)
+                .Where(type => !IsContractRegistered(type));
 
-            //Try to register all types
-            foreach (var type in types)
-            {
-                if (context.ContractRegistered(type)) continue;
+            //Register all valid types
+            foreach (var type in validtypes)
+                AddContract(type);
+        }
 
-                try
-                {
-                    context.AddContract(type);
-                }
-                catch
-                {
-                    //Unable to add a type
-                    continue;
-                }
-            }
+        /// <summary>
+        /// Check if type is a valid data contract.
+        /// </summary>
+        private static bool IsValidDataContract(Type type)
+        {
+            return DataContractHelper.IsDataContract(type);
+        }
+
+        /// <summary>
+        /// Check if type is registered as a data contract.
+        /// </summary>
+        private bool IsContractRegistered(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+
+            return _contracts.Contains(type);
+        }
+
+        /// <summary>
+        /// Register data contract.
+        /// </summary>
+        /// <param name="type">Type to register.</param>
+        /// <exception cref="InvalidDataContractException">Invalid data contract.</exception>
+        /// <exception cref="InvalidOperationException">Type already registered.</exception>
+        private void AddContract(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+
+            if (IsContractRegistered(type))
+                throw new InvalidOperationException("Type already registered.");
+
+            if (!IsValidDataContract(type))
+                throw new InvalidDataContractException(string.Format("Type '{0}' is not a valid data contract.", type.FullName));
+
+            _contracts.Add(type);
         }
         #endregion
 
         #region IDisposable implementation
         public void Dispose()
         {
-            AmfSerializationContext.Dispose();
         }
         #endregion
     }

@@ -46,7 +46,6 @@ namespace DotAmf.Encoder
             using(var writer = new AmfStreamWriter(stream))
             {
                 var encoder = CreateEncoder(writer, _options);
-                encoder.ContextSwitch += OnContextSwitch;
 
                 try
                 {
@@ -55,7 +54,6 @@ namespace DotAmf.Encoder
 
                     foreach (var pair in packet.Headers)
                     {
-                        encoder.ClearReferences();
                         encoder.WritePacketHeader(pair.Value);
                     }
 
@@ -63,18 +61,12 @@ namespace DotAmf.Encoder
 
                     foreach (var message in packet.Messages)
                     {
-                        encoder.ClearReferences();
                         encoder.WritePacketBody(message);
                     }
                 }
                 catch (Exception e)
                 {
                     throw new InvalidDataException(Errors.AmfPacketEncoder_EncodingError, e);
-                }
-                finally
-                {
-                    encoder.ContextSwitch -= OnContextSwitch;
-                    encoder.ClearReferences();
                 }
             }
         }
@@ -125,15 +117,6 @@ namespace DotAmf.Encoder
         static private void WriteMessageCount(AmfStreamWriter writer, int count)
         {
             writer.Write((ushort)count);
-        }
-
-        /// <summary>
-        /// Context switch event handler.
-        /// </summary>
-        static private void OnContextSwitch(object sender, EncodingContextSwitchEventArgs e)
-        {
-            var encoder = (IAmfEncoder)sender;
-            encoder.ClearReferences();
         }
         #endregion
     }

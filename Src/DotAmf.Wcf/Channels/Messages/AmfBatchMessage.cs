@@ -50,12 +50,5 @@ namespace DotAmf.ServiceModel.Channels
             return AmfMessages.Select(msg => new AmfGenericMessage(AmfHeaders, msg));
         }
         #endregion
-
-        #region IClonable implementation
-        override public object Clone()
-        {
-            return new AmfBatchMessage(AmfHeaders, AmfMessages);
-        }
-        #endregion
     }
 }

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.ServiceModel.Channels;
+using System.Text;
+using System.Xml;
 using DotAmf.Data;
-using DotAmf.Decoder;
-using DotAmf.Encoder;
+using DotAmf.Serialization;
 
 namespace DotAmf.ServiceModel.Channels
 {
@@ -29,8 +29,8 @@ namespace DotAmf.ServiceModel.Channels
                 AmfEncoderFactory.DefaultAmfCharSet
             );
 
-            _encoder = new AmfPacketEncoder(encodingOptions);
-            _decoder = new AmfPacketDecoder(encodingOptions);
+            _encoder = new DataContractAmfSerializer(typeof(AmfPacket), encodingOptions);
+            _decoder = new DataContractAmfSerializer(typeof(AmfPacket), encodingOptions);
         }
         #endregion
 
@@ -50,12 +50,12 @@ namespace DotAmf.ServiceModel.Channels
         /// <summary>
         /// AMF packet encoder.
         /// </summary>
-        private readonly AmfPacketEncoder _encoder;
+        private readonly DataContractAmfSerializer _encoder;
 
         /// <summary>
         /// AMF packet decoder.
         /// </summary>
-        private readonly AmfPacketDecoder _decoder;
+        private readonly DataContractAmfSerializer _decoder;
         #endregion
 
         #region Properties
@@ -159,15 +159,23 @@ namespace DotAmf.ServiceModel.Channels
         /// <returns>The Message that is read from the stream specified.</returns>
         public override Message ReadMessage(Stream stream, int maxSizeOfHeaders, string contentType)
         {
-            var packet = _decoder.Read(stream);
+            var ms = new MemoryStream();
 
-            if (packet.Messages.Count == 0)
-                throw new InvalidOperationException("AMF packet contains no message bodies.");
+            try
+            {
+                var output = new XmlTextWriter(ms, Encoding.UTF8);
+                _decoder.ReadObject(stream, output);
+                output.Flush();
+                ms.Seek(0, SeekOrigin.Begin);
 
-            if (packet.Messages.Count > 1)
-                return new AmfBatchMessage(packet.Headers, packet.Messages);
-
-            return new AmfGenericMessage(packet.Headers, packet.Messages.First());
+                var reader = new XmlTextReader(ms);
+                return Message.CreateMessage(MessageVersion.None, null, reader);
+            }
+            catch
+            {
+                ms.Dispose();
+                throw;
+            }
         }
 
         /// <summary>
@@ -204,7 +212,7 @@ namespace DotAmf.ServiceModel.Channels
             if (packet.Messages.Count == 0)
                 throw new ArgumentException(Errors.AmfEncoder_WriteMessage_EmptyAmfMessage, "message");
 
-            _encoder.Write(stream, packet);
+            _encoder.WriteObject(stream, packet);
         }
         #endregion
     }

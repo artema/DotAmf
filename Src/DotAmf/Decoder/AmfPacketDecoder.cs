@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Xml;
 using DotAmf.Data;
 using DotAmf.IO;
 
@@ -8,7 +9,7 @@ namespace DotAmf.Decoder
     /// <summary>
     /// AMF packet decoder.
     /// </summary>
-    sealed public class AmfPacketDecoder
+    sealed class AmfPacketDecoder
     {
         #region .ctor
         /// <summary>
@@ -33,54 +34,66 @@ namespace DotAmf.Decoder
 
         #region Public methods
         /// <summary>
-        /// Read an AMF packet.
+        /// Decode an AMF packet into an AMFX format.
         /// </summary>
         /// <exception cref="InvalidDataException">Error during decoding.</exception>
-        public AmfPacket Read(Stream stream)
+        public void Decode(Stream stream, XmlWriter output)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (!stream.CanRead) throw new ArgumentException(Errors.AmfPacketReader_Read_StreamClosed, "stream");
+            if (output == null) throw new ArgumentNullException("output");
 
-            using (var reader = new AmfStreamReader(stream))
+            try
             {
-                IAmfDecoder decoder = null;
+                var amfStreamReader = new AmfStreamReader(stream);
 
-                try
+                var version = ReadPacketVersion(amfStreamReader);
+                var decoder = CreateDecoder(version, _options);
+
+                output.WriteStartDocument();
+                output.WriteStartElement(AmfxContent.AmfxRoot);
+                output.WriteAttributeString(AmfxContent.VersionAttribute, version.ToAmfxName());
+                output.WriteAttributeString("xmlns", AmfxContent.Namespace);
+                output.Flush();
+
+                //Read headers
+                var headerCount = ReadDataCount(amfStreamReader);
+
+                for (var i = 0; i < headerCount; i++)
                 {
-                    var version = ReadPacketVersion(reader);
-                    var packet = new AmfPacket();
+                    var header = decoder.ReadPacketHeader(stream);
 
-                    decoder = CreateDecoder(version, reader, _options);
-                    decoder.ContextSwitch += OnContextSwitch;
-
-                    //Read headers
-                    foreach (var header in decoder.ReadPacketHeaders())
-                    {
-                        decoder.ClearReferences();
-                        packet.Headers[header.Name] = header;
-                    }
-
-                    //Read messages
-                    foreach (var message in decoder.ReadPacketMessages())
-                    {
-                        decoder.ClearReferences();
-                        packet.Messages.Add(message);
-                    }
-
-                    return packet;
+                    output.WriteStartElement(AmfxContent.PacketHeader);
+                    output.WriteAttributeString(AmfxContent.PacketHeaderName, header.Name);
+                    output.WriteAttributeString(AmfxContent.PacketHeaderMustUnderstand, header.MustUnderstand.ToString());
+                    decoder.Decode(stream, output);
+                    output.WriteEndElement();
+                    output.Flush();
                 }
-                catch (Exception e)
+
+                //Read messages
+                var messageCount = ReadDataCount(amfStreamReader);
+
+                for (var i = 0; i < messageCount; i++)
                 {
-                    throw new InvalidDataException(Errors.AmfPacketReader_DecodingError, e);
+                    var body = decoder.ReadPacketBody(stream);
+
+                    output.WriteStartElement(AmfxContent.PacketBody);
+                    output.WriteAttributeString(AmfxContent.PacketBodyTarget, body.Target);
+                    output.WriteAttributeString(AmfxContent.PacketBodyResponse, body.Response);
+                    decoder.Decode(stream, output);
+                    output.WriteEndElement();
+                    output.Flush();
                 }
-                finally
-                {
-                    if (decoder != null)
-                    {
-                        decoder.ContextSwitch -= OnContextSwitch;
-                        decoder.ClearReferences();
-                    }
-                }
+
+                output.WriteEndElement();
+                output.WriteEndDocument();
+                output.Flush();
+            }
+            catch (Exception e)
+            {
+                output.Flush();
+                throw new InvalidDataException(Errors.AmfPacketReader_DecodingError, e);
             }
         }
         #endregion
@@ -90,7 +103,7 @@ namespace DotAmf.Decoder
         /// Read AMF packet version.
         /// </summary>
         /// <exception cref="FormatException">Data has unknown format.</exception>
-        static private AmfVersion ReadPacketVersion(AmfStreamReader reader)
+        private static AmfVersion ReadPacketVersion(AmfStreamReader reader)
         {
             try
             {
@@ -104,33 +117,31 @@ namespace DotAmf.Decoder
         }
 
         /// <summary>
+        /// Read number of following headers/messages.
+        /// </summary>
+        private static uint ReadDataCount(AmfStreamReader reader)
+        {
+            return reader.ReadUInt16();
+        }
+
+        /// <summary>
         /// Create AMF decoder.
         /// </summary>
         /// <param name="version">AMF packet version.</param>
-        /// <param name="reader">AMF stream reader.</param>
         /// <param name="options">Encoding options.</param>
-        static private IAmfDecoder CreateDecoder(AmfVersion version, BinaryReader reader, AmfEncodingOptions options)
+        private static IAmfDecoder CreateDecoder(AmfVersion version, AmfEncodingOptions options)
         {
             switch (version)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Decoder(reader, options);
+                    return new Amf0Decoder(options);
 
                 case AmfVersion.Amf3:
-                    return new Amf3Decoder(reader, options);
+                    return new Amf3Decoder(options);
 
                 default:
                     throw new NotSupportedException();
             }
-        }
-
-        /// <summary>
-        /// AMF context switch event hanlder.
-        /// </summary>
-        static private void OnContextSwitch(object sender, EncodingContextSwitchEventArgs e)
-        {
-            var decoder = (IAmfDecoder) sender;
-            decoder.ClearReferences();
         }
         #endregion
     }

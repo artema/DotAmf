@@ -11,12 +11,7 @@ namespace DotAmf.IO
     {
         #region .ctor
         public AmfStreamReader(Stream stream)
-            : base(stream)
-        {
-        }
-
-        public AmfStreamReader(Stream stream, Encoding encoding)
-            : base(stream, encoding)
+            : base(stream, Encoding.UTF8)
         {
         }
         #endregion
@@ -57,15 +52,6 @@ namespace DotAmf.IO
         public override double ReadDouble() { return BitConverter.ToDouble(PrepareBytes(ReadBytes(8)), 0); }
 
         public override string ReadString() { throw new NotSupportedException(); }
-        #endregion
-
-        #region IDisposable implementation
-        /// <summary>
-        /// Disposes reader, but leaves the underlying stream open.
-        /// </summary>
-        public new void Dispose()
-        {
-        }
         #endregion
     }
 }

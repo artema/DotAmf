@@ -2,6 +2,7 @@
 using System.ServiceModel.Channels;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
+using DotAmf.Data;
 using DotAmf.ServiceModel.Configuration;
 using DotAmf.ServiceModel.Dispatcher;
 

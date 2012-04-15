@@ -3,32 +3,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
-using DotAmf.Data;
 
 namespace DotAmf.Serialization
 {
     /// <summary>
     /// Data contract helper.
     /// </summary>
-    static internal class DataContractHelper
+    public static class DataContractHelper
     {
-        #region Constants
-        /// <summary>
-        /// Proxy type name prefix.
-        /// </summary>
-        private const string ProxyTypePrefix = "ProxyType";
-        #endregion
-
         #region Public methods
         /// <summary>
-        /// Create assembly type name for a proxy type alias.
+        /// Check if type is a valid data contract.
         /// </summary>
-        /// <param name="typeAlias">Type alias.</param>
-        /// <returns>Type name, suitable for using as an assembly type name.</returns>
-        static public string CreateProxyTypeName(string typeAlias)
+        static public bool IsDataContract(Type type)
         {
-            if (typeAlias == null) throw new ArgumentNullException("typeAlias");
-            return ProxyTypePrefix + typeAlias.GetHashCode();
+            if (type == null) throw new ArgumentNullException("type");
+
+            //Look for a data contract attribute
+            var contractAttribute =
+                    type.GetCustomAttributes(typeof(DataContractAttribute), false).FirstOrDefault() as
+                    DataContractAttribute;
+
+            return (contractAttribute != null);
         }
 
         /// <summary>
@@ -41,7 +37,7 @@ namespace DotAmf.Serialization
         {
             if (type == null) throw new ArgumentNullException("type");
 
-            //Look for a data contract attribute first
+            //Look for a data contract attribute
             var contractAttribute =
                     type.GetCustomAttributes(typeof(DataContractAttribute), false).FirstOrDefault() as
                     DataContractAttribute;
@@ -114,35 +110,11 @@ namespace DotAmf.Serialization
         }
 
         /// <summary>
-        /// Create dynamic untyped object.
-        /// </summary>
-        /// <param name="source">Source object's properties.</param>
-        /// <returns></returns>
-        static public AmfObject CreateDynamicObject(IDictionary<string, object> source)
-        {
-            if (source == null) throw new ArgumentNullException("source");
-
-            var obj = new AmfObject
-            {
-                Properties = new Dictionary<string, object>(source),
-                Traits = new AmfTypeTraits
-                {
-                    IsDynamic = true,
-                    TypeName = AmfTypeTraits.BaseTypeAlias,
-                    ClassMembers = new string[0]
-                }
-            };
-
-            return obj;
-        }
-
-        /// <summary>
         /// Get contract members from a contract type.
         /// </summary>
         static public IEnumerable<Type> GetContractMembers(Type type)
         {
             if (type == null) throw new ArgumentNullException("type");
-
 
             var properties = from pair in GetContractProperties(type)
                              select pair.Value.PropertyType;
@@ -152,15 +124,13 @@ namespace DotAmf.Serialization
 
             return properties.Concat(fields).Distinct();
         }
-        #endregion
 
-        #region Private methods
         /// <summary>
         /// Get properties of data contract type.
         /// </summary>
         /// <param name="type">Data contract type.</param>
         /// <returns>A set of name-property pairs.</returns>
-        static private IEnumerable<KeyValuePair<string, PropertyInfo>> GetContractProperties(Type type)
+        static public IEnumerable<KeyValuePair<string, PropertyInfo>> GetContractProperties(Type type)
         {
             if (type == null) throw new ArgumentNullException("type");
 
@@ -192,7 +162,7 @@ namespace DotAmf.Serialization
         /// </summary>
         /// <param name="type">Data contract type.</param>
         /// <returns>A set of name-field pairs.</returns>
-        static private IEnumerable<KeyValuePair<string, FieldInfo>> GetContractFields(Type type)
+        static public IEnumerable<KeyValuePair<string, FieldInfo>> GetContractFields(Type type)
         {
             if (type == null) throw new ArgumentNullException("type");
 
@@ -217,6 +187,54 @@ namespace DotAmf.Serialization
                     continue;
                 }
             }
+        }
+
+        /// <summary>
+        /// Check if type is a numeric type.
+        /// </summary>
+        static public bool IsNumericType(Type type)
+        {
+            bool isInteger;
+            return IsNumericType(type, out isInteger);
+        }
+
+        /// <summary>
+        /// Check if type is a numeric type.
+        /// </summary>
+        static public bool IsNumericType(Type type, out bool isInteger)
+        {
+            isInteger = false;
+
+            if (type == null) return false;
+
+            switch (Type.GetTypeCode(type))
+            {
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.Int32:
+                case TypeCode.Int64:
+                case TypeCode.SByte:
+                case TypeCode.UInt16:
+                case TypeCode.UInt32:
+                case TypeCode.UInt64:
+                    isInteger = true;
+                    return true;
+
+                case TypeCode.Decimal:
+                case TypeCode.Double:
+                case TypeCode.Single:
+                    return true;
+
+                case TypeCode.Object:
+                {
+                    if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                        return IsNumericType(Nullable.GetUnderlyingType(type), out isInteger);
+
+                    return false;
+                }
+            }
+
+            return false;
         }
         #endregion
     }

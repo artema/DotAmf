@@ -9,7 +9,7 @@ namespace DotAmf.ServiceModel.Channels
     /// <summary>
     /// Abstract AMF message.
     /// </summary>
-    abstract internal class AmfMessageBase : Message, ICloneable
+    abstract internal class AmfMessageBase : Message
     {
         #region .ctor
         /// <summary>
@@ -83,10 +83,6 @@ namespace DotAmf.ServiceModel.Channels
         {
             //We don't need this at all
         }
-        #endregion
-
-        #region Abstract methods
-        public abstract object Clone();
         #endregion
     }
 }

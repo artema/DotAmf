@@ -1,187 +1,126 @@
 ﻿using System;
 using System.Collections.Generic;
+#if DEBUG
 using System.Diagnostics;
+#endif
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
 using DotAmf.Data;
+using DotAmf.IO;
 
 namespace DotAmf.Decoder
 {
     /// <summary>
     /// AMF3 decoder.
     /// </summary>
-    sealed internal class Amf3Decoder : Amf0Decoder
+    class Amf3Decoder : Amf0Decoder
     {
         #region .ctor
-        public Amf3Decoder(BinaryReader reader, AmfEncodingOptions options)
-            : base(reader, options)
+        public Amf3Decoder(AmfEncodingOptions options)
+            : base(options)
         {
-            _stringReferences = new List<string>();
-            _traitReferences = new List<AmfTypeTraits>();
-        }
-        #endregion
-
-        #region Data
-        /// <summary>
-        /// Strings references.
-        /// </summary>
-        private readonly IList<string> _stringReferences;
-
-        /// <summary>
-        /// Object traits references.
-        /// </summary>
-        private readonly IList<AmfTypeTraits> _traitReferences;
-        #endregion
-
-        #region References
-        /// <summary>
-        /// Save string to a list of string references.
-        /// </summary>
-        /// <param name="value">String to save or <c>null</c></param>
-        private void SaveReference(string value)
-        {
-            _stringReferences.Add(value);
-        }
-
-        /// <summary>
-        /// Save object traits to a list of traits references.
-        /// </summary>
-        /// <param name="value">Traits to save or <c>null</c></param>
-        private void SaveReference(AmfTypeTraits value)
-        {
-            _traitReferences.Add(value);
-        }
-
-        /// <summary>
-        /// Read an object reference.
-        /// </summary>
-        /// <param name="value">Uint29 value received when trying to read a reference.</param>
-        /// <returns>Referenced object or <c>null</c> if value does not contain a reference.</returns>
-        /// <exception cref="SerializationException">Invalid object reference.</exception>
-        private object ReadReference(out int value)
-        {
-            value = ReadUint29();
-
-            if ((value & 0x1) == 0)
-            {
-                var index = value >> 1;
-
-                try
-                {
-                    return References[index];
-                }
-                catch
-                {
-                    throw new SerializationException("Invalid object reference. No object found at position " + index);
-                }
-            }
-
-            return null;
         }
         #endregion
 
         #region IAmfDecoder implementation
-        override public void ClearReferences()
+        override public void Decode(Stream stream, XmlWriter output)
         {
-            base.ClearReferences();
-
-            _stringReferences.Clear();
-            _traitReferences.Clear();
-        }
-
-        override public object ReadValue()
-        {
-            //Work in a legacy context
-            if (CurrentAmfVersion == AmfVersion.Amf0)
-                return base.ReadValue();
-
-            Amf3TypeMarker type;
-
-            try
-            {
-                //Read a type marker byte
-                type = (Amf3TypeMarker)Reader.ReadByte();
-            }
-            catch (Exception e)
-            {
-                #if DEBUG
-                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_InvalidMarker_, Reader.BaseStream.Position));
-                #endif
-
-                throw new FormatException(string.Format(Errors.Amf3Decoder_ReadValue_TypeMarkerNotFound, Reader.BaseStream.Position), e);
-            }
-
-            var value = ReadValue(type);
-
-            #if DEBUG
-            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_End, type, Reader.BaseStream.Position));
-            #endif
-
-            return value;
+            var reader = new AmfStreamReader(stream);
+            var context = CreateDefaultContext(reader);
+            ReadAmfValue(context, output);
         }
         #endregion
 
-        #region Deserialization methods
+        #region References
         /// <summary>
-        /// Read a value of a given type from current reader's position.
+        /// Read an object reference.
         /// </summary>
-        /// <remarks>
-        /// Current reader position must be just after a value type marker of a type to read.
-        /// </remarks>
-        /// <param name="type">Type of the value to read.</param>
-        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
-        /// <exception cref="FormatException">Unknown data format.</exception>
-        /// <exception cref="SerializationException">Error during deserialization.</exception>
-        public object ReadValue(Amf3TypeMarker type)
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="index">Reference index.</param>
+        /// <param name="reference">Reference value.</param>
+        /// <returns>Referenced object or <c>null</c> if value does not contain a reference.</returns>
+        /// <exception cref="SerializationException">Invalid reference.</exception>
+        private static bool ReadReference(AmfEncodingContext context, out int index, out int reference)
         {
-            #if DEBUG
-            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_Debug, type, Reader.BaseStream.Position));
-            #endif
+            reference = ReadUint29(context);
 
-            switch (type)
+            //The first bit is a flag with value 0 to imply that this is not an instance but a reference
+            if ((reference & 0x1) == 0)
             {
-                case Amf3TypeMarker.Null:
-                case Amf3TypeMarker.Undefined:
-                    return null;
+                //The remaining 1 to 28 significant bits are used to encode an object reference index
+                index = reference >> 1;
 
-                case Amf3TypeMarker.False:
-                    return false;
+                if (context.References <= index)
+                    throw new SerializationException("Invalid reference index: " + index);
 
-                case Amf3TypeMarker.True:
-                    return true;
-
-                case Amf3TypeMarker.Integer:
-                    return ReadUint29();
-
-                case Amf3TypeMarker.Double:
-                    return Reader.ReadDouble();
-
-                case Amf3TypeMarker.String:
-                    return ReadString();
-
-                case Amf3TypeMarker.Date:
-                    return ReadDate();
-
-                case Amf3TypeMarker.ByteArray:
-                    return ReadByteArray();
-
-                case Amf3TypeMarker.Xml:
-                case Amf3TypeMarker.XmlDocument:
-                    return ReadXml();
-
-                case Amf3TypeMarker.Array:
-                    return ReadArray();
-
-                case Amf3TypeMarker.Object:
-                    return ReadObject();
-
-                default:
-                    throw new NotSupportedException("Type '" + type + "' is not supported.");
+                return true;
             }
+
+            index = -1;
+            return false;
         }
 
+        /// <summary>
+        /// Read a string reference.
+        /// </summary>
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="index">Reference index.</param>
+        /// <param name="reference">Reference value.</param>
+        /// <returns>Referenced string or <c>null</c> if value does not contain a reference.</returns>
+        /// <exception cref="SerializationException">Invalid reference.</exception>
+        private static string ReadStringReference(AmfEncodingContext context, out int index, out int reference)
+        {
+            reference = ReadUint29(context);
+
+            //The first bit is a flag with value 0
+            if ((reference & 0x1) == 0)
+            {
+                //The remaining 1 to 28 significant bits are used to encode a string reference table index
+                index = reference >> 1;
+
+                if (context.StringReferences.Count <= index)
+                    throw new SerializationException("Invalid reference index: " + index);
+
+                return context.StringReferences[index];
+            }
+
+            index = -1;
+            return null;
+        }
+
+        /// <summary>
+        /// Read a traits reference.
+        /// </summary>
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="index">Reference index.</param>
+        /// <param name="reference">Reference value.</param>
+        /// <returns>Referenced traits object or <c>null</c> if value does not contain a reference.</returns>
+        /// <exception cref="SerializationException">Invalid reference.</exception>
+        private static AmfTypeTraits ReadTraitsReference(AmfEncodingContext context, out int index, out int reference)
+        {
+            reference = ReadUint29(context);
+
+            //The first bit is a flag with value 1. The second bit is a flag with value 0 to imply 
+            //that this objects traits are being sent by reference
+            if ((reference & 0x3) == 1) //x01 & x11 == x01
+            {
+                //The remaining 1 to 27 significant bits are used to encode a trait reference index
+                index = reference >> 2;
+
+                if (context.TraitsReferences.Count <= index)
+                    throw new SerializationException("Invalid reference index: " + index);
+
+                return context.TraitsReferences[index];
+            }
+
+            index = -1;
+            return null;
+        }
+        #endregion
+
+        #region Helper methods
         /// <summary>
         /// Read a 29-bit unsigned integer.
         /// </summary>
@@ -197,31 +136,210 @@ namespace DotAmf.Decoder
         /// 0x40000000 - 0xFFFFFFFF : throw range exception
         /// </c>
         /// </remarks>
-        private int ReadUint29()
+        private static int ReadUint29(AmfEncodingContext context)
         {
             const byte mask = 0x7F; //0111 1111
-            var octet = Reader.ReadByte() & 0xFF;
+            var octet = context.Reader.ReadByte() & 0xFF;
 
             //0xxxxxxx
             if (octet < 128) return octet;
 
             var result = (octet & mask) << 7;
-            octet = Reader.ReadByte() & 0xFF;
+            octet = context.Reader.ReadByte() & 0xFF;
 
             //1xxxxxxx 0xxxxxxx
             if (octet < 128) return (result | octet);
 
             result = (result | (octet & mask)) << 7;
-            octet = Reader.ReadByte() & 0xFF;
+            octet = context.Reader.ReadByte() & 0xFF;
 
             //1xxxxxxx 1xxxxxxx 0xxxxxxx
             if (octet < 128) return (result | octet);
 
             result = (result | (octet & mask)) << 8;
-            octet = Reader.ReadByte() & 0xFF;
+            octet = context.Reader.ReadByte() & 0xFF;
 
             //1xxxxxxx 1xxxxxxx 1xxxxxxx xxxxxxxx
             return (result | octet);
+        }
+
+        /// <summary>
+        /// Read a specified number of bytes of a string.
+        /// </summary>
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="length">Number of bytes to read.</param>
+        private static string ReadUtf8(AmfEncodingContext context, int length)
+        {
+            if (length < 0) throw new ArgumentException(Errors.Amf3Deserializer_ReadString_NegativeLength, "length");
+
+            //Make sure that a null is never returned
+            if (length == 0) return string.Empty;
+
+            var data = context.Reader.ReadBytes(length);
+
+            //All strings are encoded in UTF-8
+            return Encoding.UTF8.GetString(data);
+        }
+
+        /// <summary>
+        /// Write an empty element of a given name.
+        /// </summary>
+        private static void WriteEmptyElement(string elementName, XmlWriter output)
+        {
+            if (output != null)
+            {
+                output.WriteStartElement(elementName);
+                output.WriteEndElement();
+            }
+        }
+
+        /// <summary>
+        /// Write a reference.
+        /// </summary>
+        private static void WriteReference(int index, XmlWriter output)
+        {
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.Reference);
+                output.WriteAttributeString(AmfxContent.ReferenceId, index.ToString());
+                output.WriteEndElement();
+            }
+        }
+        #endregion
+
+        #region Deserialization methods
+        protected override void ReadAmfValue(AmfEncodingContext context, XmlWriter output = null)
+        {
+            //Work in a legacy context
+            if (context.AmfVersion == AmfVersion.Amf0)
+            {
+                base.ReadAmfValue(context, output);
+                return;
+            }
+
+            Amf3TypeMarker dataType;
+
+            try
+            {
+                //Read a type marker byte
+                dataType = (Amf3TypeMarker)context.Reader.ReadByte();
+            }
+            catch (Exception e)
+            {
+                #if DEBUG
+                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_InvalidMarker, context.Reader.BaseStream.Position));
+                #endif
+
+                throw new FormatException(string.Format(Errors.Amf3Decoder_ReadValue_TypeMarkerNotFound, context.Reader.BaseStream.Position), e);
+            }
+
+            ReadValue(context, dataType, output);
+
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_End, dataType, context.Reader.BaseStream.Position));
+            #endif
+        }
+
+        /// <summary>
+        /// Read a value of a given type from current reader's position.
+        /// </summary>
+        /// <remarks>
+        /// Current reader position must be just after a value type marker of a type to read.
+        /// </remarks>
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="type">Type of the value to read.</param>
+        /// <param name="output">AMFX output.</param>
+        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
+        /// <exception cref="FormatException">Unknown data format.</exception>
+        /// <exception cref="SerializationException">Error during deserialization.</exception>
+        private void ReadValue(AmfEncodingContext context, Amf3TypeMarker type, XmlWriter output = null)
+        {
+            #if DEBUG
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_Debug, type, context.Reader.BaseStream.Position));
+            #endif
+
+            switch (type)
+            {
+                case Amf3TypeMarker.Null:
+                case Amf3TypeMarker.Undefined:
+                    WriteEmptyElement(type.ToAmfxName(), output);
+                    break;
+
+                case Amf3TypeMarker.False:
+                    WriteEmptyElement(type.ToAmfxName(), output);
+                    break;
+
+                case Amf3TypeMarker.True:
+                    WriteEmptyElement(type.ToAmfxName(), output);
+                    break;
+
+                case Amf3TypeMarker.Integer:
+                    ReadInteger(context, output);
+                    break;
+
+                case Amf3TypeMarker.Double:
+                    ReadDouble(context, output);
+                    break;
+
+                case Amf3TypeMarker.String:
+                    ReadString(context, output);
+                    break;
+
+                case Amf3TypeMarker.Date:
+                    ReadDate(context, output);
+                    break;
+
+                case Amf3TypeMarker.ByteArray:
+                    ReadByteArray(context, output);
+                    break;
+
+                case Amf3TypeMarker.Xml:
+                case Amf3TypeMarker.XmlDocument:
+                    ReadXml(context, output);
+                    break;
+
+                case Amf3TypeMarker.Array:
+                    ReadArray(context, output);
+                    break;
+
+                case Amf3TypeMarker.Object:
+                    ReadObject(context, output);
+                    break;
+
+                default:
+                    throw new NotSupportedException("Type '" + type + "' is not supported.");
+            }
+        }
+
+        #region Primitive types
+        /// <summary>
+        /// Read an integer.
+        /// </summary>
+        private static void ReadInteger(AmfEncodingContext context, XmlWriter output = null)
+        {
+            var value = ReadUint29(context);
+
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.Integer);
+                output.WriteValue(value);
+                output.WriteEndElement();
+            }
+        }
+
+        /// <summary>
+        /// Read a double.
+        /// </summary>
+        private static void ReadDouble(AmfEncodingContext context, XmlWriter output = null)
+        {
+            var value = context.Reader.ReadDouble();
+
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.Double);
+                output.WriteValue(value);
+                output.WriteEndElement();
+            }
         }
 
         /// <summary>
@@ -237,36 +355,37 @@ namespace DotAmf.Decoder
         /// UTF-8-vr = U29S-ref | (U29S-value *(UTF8-char))
         /// string-type = string-marker UTF-8-vr</c>
         /// </remarks>
-        private string ReadString()
+        private static string ReadString(AmfEncodingContext context, XmlWriter output = null)
         {
-            var reference = ReadUint29();
+            int index, reference;
+            string cache;
 
-            //Read string by reference
-            if ((reference & 0x1) == 0) return _stringReferences[(reference >> 1)];
+            if ((cache = ReadStringReference(context, out index, out reference)) != null)
+            {
+                if (output != null)
+                {
+                    output.WriteStartElement(AmfxContent.String);
+                    output.WriteAttributeString(AmfxContent.StringId, index.ToString());
+                    output.WriteEndElement();
+                }
+
+                return cache;
+            }
 
             //Get string length
             var length = (reference >> 1);
-            var str = ReadString(length);
+            var value = ReadUtf8(context, length);
 
-            SaveReference(str);
-            return str;
-        }
+            context.StringReferences.Add(value);
 
-        /// <summary>
-        /// Read a specified number of bytes of a string.
-        /// </summary>
-        /// <param name="length">Number of bytes to read.</param>
-        private string ReadString(int length)
-        {
-            if (length < 0) throw new ArgumentException(Errors.Amf3Deserializer_ReadString_NegativeLength, "length");
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.String);
+                output.WriteValue(value);
+                output.WriteEndElement();
+            }
 
-            //Make sure that a null is never returned
-            if (length == 0) return string.Empty;
-
-            var data = Reader.ReadBytes(length);
-
-            //All strings are encoded in UTF-8
-            return Encoding.UTF8.GetString(data);
+            return value;
         }
 
         /// <summary>
@@ -279,21 +398,28 @@ namespace DotAmf.Decoder
         /// date-time = DOUBLE (A 64-bit integer value transported as a double).
         /// date-type = date-marker (U29O-ref | (U29D-value date-time))</c>
         /// </remarks>
-        private DateTime ReadDate()
+        private static void ReadDate(AmfEncodingContext context, XmlWriter output = null)
         {
-            int reference;
-            object cache;
+            int index, reference;
 
-            if ((cache = ReadReference(out reference)) != null) return (DateTime)cache;
+            if (ReadReference(context, out index, out reference))
+            {
+                if (output != null) WriteReference(index, output);
+                return;
+            }
 
             //Dates are represented as an Unix time stamp, but in milliseconds
-            var milliseconds = Reader.ReadDouble();
+            var milliseconds = context.Reader.ReadDouble();
+            var value = milliseconds.ToString();
 
-            var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
-            var date = origin.AddMilliseconds(milliseconds);
+            context.CountReference();
 
-            SaveReference(date);
-            return date;
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.Date);
+                output.WriteValue(value);
+                output.WriteEndElement();
+            }
         }
 
         /// <summary>
@@ -306,20 +432,29 @@ namespace DotAmf.Decoder
         /// byte-length of the ByteArray).
         /// bytearray-type = bytearray-marker (U29O-ref | U29B-value *(U8))</c>
         /// </remarks>
-        private byte[] ReadByteArray()
+        private static void ReadByteArray(AmfEncodingContext context, XmlWriter output = null)
         {
-            int reference;
-            object cache;
+            int index, reference;
 
-            if ((cache = ReadReference(out reference)) != null) return (byte[])cache;
+            if (ReadReference(context, out index, out reference))
+            {
+                if (output != null) WriteReference(index, output);
+                return;
+            }
 
             //Get array length
             var length = (reference >> 1);
+            var data = length == 0 ? new byte[] { } : context.Reader.ReadBytes(length);
+            var value = Convert.ToBase64String(data);
 
-            var data = length == 0 ? new byte[] { } : Reader.ReadBytes(length);
+            context.CountReference();
 
-            SaveReference(data);
-            return data;
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.ByteArray);
+                output.WriteValue(value);
+                output.WriteEndElement();
+            }
         }
 
         /// <summary>
@@ -332,32 +467,32 @@ namespace DotAmf.Decoder
         /// of the UTF-8 encoded representation of the XML or XMLDocument). 
         /// xml-doc-type = xml-doc-marker (U29O-ref | (U29X-value *(UTF8-char)))</c>
         /// </remarks>
-        private XmlDocument ReadXml()
+        private static void ReadXml(AmfEncodingContext context, XmlWriter output = null)
         {
-            int reference;
-            object cache;
+            int index, reference;
 
-            if ((cache = ReadReference(out reference)) != null) return (XmlDocument)cache;
+            if (ReadReference(context, out index, out reference))
+            {
+                if (output != null) WriteReference(index, output);
+                return;
+            }
 
             //Get XML string length
             var length = (reference >> 1);
-            var rawData = ReadString(length);
+            var value = ReadUtf8(context, length);
 
-            var xml = new XmlDocument();
+            context.CountReference();
 
-            try
+            if (output != null)
             {
-                xml.LoadXml(rawData);
+                output.WriteStartElement(AmfxContent.Xml);
+                output.WriteValue(value);
+                output.WriteEndElement();
             }
-            catch (Exception e)
-            {
-                throw new SerializationException("Error during XML deserialization.", e);
-            }
-
-            SaveReference(xml);
-            return xml;
         }
+        #endregion
 
+        #region Complex types
         /// <summary>
         /// Read an array.
         /// </summary>
@@ -370,80 +505,93 @@ namespace DotAmf.Decoder
         /// array-type = array-marker (U29O-ref | 
         /// (U29A-value (UTF-8-empty | *(assoc-value) UTF-8-empty) *(value-type)))</c>
         /// </remarks>
-        private object ReadArray()
+        private void ReadArray(AmfEncodingContext context, XmlWriter output = null)
         {
-            int reference;
-            object cache;
+            int index, reference;
 
-            if ((cache = ReadReference(out reference)) != null) return cache;
+            if (ReadReference(context, out index, out reference))
+            {
+                if (output != null) WriteReference(index, output);
+                return;
+            }
 
-            var key = ReadString();
+            var length = reference >> 1;
+            var key = ReadString(context);
+
+            if (output != null)
+            {
+                output.WriteStartElement(AmfxContent.Array);
+                output.WriteAttributeString(AmfxContent.ArrayLength, length.ToString());
+            }
 
             //ECMA array
             if (key != string.Empty)
             {
-                //Create a dynamic object
-                var hashmap = new AmfObject
-                                  {
-                                      Properties = new Dictionary<string, object>(),
-                                      Traits = new AmfTypeTraits { IsDynamic = true }
-                                  };
+                if (output != null) output.WriteAttributeString(AmfxContent.ArrayEcma, AmfxContent.True);
 
                 //Read associative values
                 do
                 {
-                    hashmap.Properties[key] = ReadValue();
-                    key = ReadString();
-                } while (key != string.Empty);
+                    if (output != null)
+                    {
+                        output.WriteStartElement(AmfxContent.ArrayItem);
+                        output.WriteAttributeString(AmfxContent.ArrayKey, key);
+                    }
 
-                var length = reference >> 1;
+                    ReadAmfValue(context, output);
+                    key = ReadString(context);
+
+                    if (output != null) output.WriteEndElement();
+                }
+                while (key != string.Empty);
 
                 //Read array values
                 for (var i = 0; i < length; i++)
-                    hashmap.Properties[i.ToString()] = ReadValue();
+                    ReadAmfValue(context, output);
 
-                SaveReference(hashmap);
-                return hashmap;
+                context.CountReference();
             }
             //Regular array
             else
             {
-                var length = reference >> 1;
-                var array = new object[length];
-
                 //Read array values
                 for (var i = 0; i < length; i++)
-                    array[i] = ReadValue();
+                    ReadAmfValue(context, output);
 
-                SaveReference(array);
-                return array;
+                context.CountReference();
             }
+
+            if (output != null) output.WriteEndElement();
         }
 
         /// <summary>
         /// Read an object.
         /// </summary>
-        private object ReadObject()
+        private void ReadObject(AmfEncodingContext context, XmlWriter output = null)
         {
-            var reference = ReadUint29();
+            var reference = context.Reader.PeekChar();
+
+            if ((reference & 0x1) == 0)
+            {
+                var index = reference >> 1;
+                if (output != null) WriteReference(index, output);
+                return;
+            }
+
+            int traitsindex, traitsreference;
             AmfTypeTraits traits;
 
-            //Get traits object by reference
-            if ((reference & 0x3) == 1)
+            #region Read object's traits
+            if ((traits = ReadTraitsReference(context, out traitsindex, out traitsreference)) == null)
             {
-                traits = _traitReferences[(reference >> 2)];
-            }
-            //Read object's traits
-            else
-            {
-                var isExternalizable = ((reference & 0x4) == 4);
-                var isDynamic = ((reference & 0x8) == 8);
-                var typeName = ReadString();
-                var count = (reference >> 4);
+                var isExternalizable = ((traitsreference & 0x4) == 4);
+                var isDynamic = ((traitsreference & 0x8) == 8);
+                var typeName = ReadString(context);
+                var count = (traitsreference >> 4);
                 var classMembers = new string[count];
 
                 for (var i = 0; i < count; i++)
-                    classMembers[i] = ReadString();
+                    classMembers[i] = ReadString(context);
 
                 traits = new AmfTypeTraits
                              {
@@ -458,8 +606,9 @@ namespace DotAmf.Decoder
                                     : classMembers
                              };
 
-                SaveReference(traits);
+                context.TraitsReferences.Add(traits);
             }
+            #endregion
 
             #if DEBUG
             Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_Name, traits.TypeName));
@@ -472,57 +621,123 @@ namespace DotAmf.Decoder
                 Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_Members, traits.ClassMembers.Length));
             #endif
 
-            var content = new Dictionary<string, object>();
+            context.CountReference();
 
-            #if DEBUG
-            var memberPosition = 0;
-            #endif
-
-            //Read object's properties
-            foreach (var classMember in traits.ClassMembers)
+            using (var ms = new MemoryStream())
             {
+                #region Reading object members
+                var members = new List<string>();
+
+                var buffer = new XmlTextWriter(ms, Encoding.UTF8);
+                buffer.WriteStartElement("buffer");
+                buffer.WriteAttributeString("xmlns", AmfxContent.Namespace);
+
                 #if DEBUG
-                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingField, memberPosition, classMember));
-                memberPosition++;
+                var memberPosition = 0;
                 #endif
 
-                content[classMember] = ReadValue();
-            }
-
-            //Read dynamic properties too
-            if (traits.IsDynamic)
-            {
-                #if DEBUG
-                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamic);
-                #endif
-
-                var key = ReadString();
-
-                while (key != string.Empty)
+                //Read object's properties
+                foreach (var classMember in traits.ClassMembers)
                 {
                     #if DEBUG
-                    Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamicField, key));
+                    Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingField, memberPosition,
+                                                    classMember));
+                    memberPosition++;
                     #endif
 
-                    var value = ReadValue();
-                    content[key] = value;
-                    key = ReadString();
+                    ReadAmfValue(context, buffer);
+                    members.Add(classMember);
                 }
 
+                //Read dynamic properties too
+                if (traits.IsDynamic)
+                {
+                    #if DEBUG
+                    Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamic);
+                    #endif
+
+                    var key = ReadString(context);
+
+                    while (key != string.Empty)
+                    {
+                        #if DEBUG
+                        Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamicField, key));
+                        #endif
+
+                        ReadAmfValue(context, buffer);
+                        members.Add(key);
+
+                        key = ReadString(context);
+                    }
+
+                    #if DEBUG
+                    Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_DynamicEnd);
+                    #endif
+                }
+
+                buffer.WriteEndElement();
+                buffer.Flush();
+                #endregion
+
                 #if DEBUG
-                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_DynamicEnd);
+                Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_End);
                 #endif
+
+                #region Writing member values
+                if (output != null)
+                {
+                    output.WriteStartElement(AmfxContent.Object);
+
+                    if (traits.TypeName != AmfTypeTraits.BaseTypeAlias)
+                        output.WriteAttributeString(AmfxContent.ObjectType, traits.TypeName);
+
+                    output.WriteStartElement(AmfxContent.Traits);
+
+                    //Regular traits object
+                    //Always write traits for dynamic objects
+                    if (traitsindex == -1 || traits.IsDynamic)
+                    {
+                        if (traits.IsExternalizable)
+                        {
+                            output.WriteAttributeString(AmfxContent.TraitsExternizable, AmfxContent.True);
+                        }
+                        else
+                        {
+                            //Write object members
+                            foreach (var classMember in members)
+                            {
+                                output.WriteStartElement(AmfxContent.String);
+                                output.WriteValue(classMember);
+                                output.WriteEndElement();
+                            }
+                        }
+                    }
+                    //Traits object reference
+                    else
+                    {
+                        output.WriteAttributeString(AmfxContent.TraitsId, traitsindex.ToString());
+                    }
+
+                    output.WriteEndElement(); //End of traits
+
+                    //Write object members
+                    if (members.Count > 0)
+                    {
+                        ms.Position = 0;
+                        var bufferreader = new XmlTextReader(ms);
+                        bufferreader.Read();
+                        bufferreader.ReadStartElement();
+
+                        while (bufferreader.Depth >= 1)
+                            output.WriteNode(bufferreader, false);
+                    }
+
+                    output.WriteEndElement(); //End of object
+                }
+                #endregion
             }
-
-            var result = new AmfObject { Traits = traits, Properties = content };
-            SaveReference(result);
-
-            #if DEBUG
-            Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_End);
-            #endif
-
-            return result;
         }
+        #endregion
         #endregion
     }
 }

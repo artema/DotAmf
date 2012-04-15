@@ -36,48 +36,52 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <returns>The name of the service operation to call.</returns>
         public string SelectOperation(ref Message message)
         {
-            //ToDo: this should be moved elsewhere
-            if (message is AmfBatchMessage)
+            //Read AMF packet from the message
+            var packet = message.GetBody<AmfPacket>(_context.AmfSerializer);
+
+            //Batch request
+            if (packet.Messages.Count > 1)
             {
+                message = new AmfBatchMessage(packet.Headers, packet.Messages);
                 return AmfOperationKind.Batch;
             }
 
-            var amfMessage = (AmfGenericMessage)message;
+            //Regular request
+            var amfMessage = new AmfGenericMessage(packet.Headers, packet.Messages[0]);
+            message = amfMessage;
 
-            //Resolve message contracts
-            amfMessage = ResolveContracts(_context.AmfSerializationContext, amfMessage);
-
-            //Check if it is a Flex message
+            //Check if it is a Flex message.
+            //Due to the nature of NetConnection.call(), RPC arguments 
+            //are sent in an array. But in case of AMFX, an array is not used
+            //if there is only one argument.
             var arraybody = amfMessage.AmfMessage.Data as object[];
+            AbstractMessage flexmessage;
 
-            //A Flex message's body is always an array
-            if (arraybody != null)
+            if (arraybody != null && arraybody.Length > 0)
+                flexmessage = arraybody[0] as AbstractMessage;
+            else
+                flexmessage = amfMessage.AmfMessage.Data as AbstractMessage;
+
+            //It is a Flex message after all
+            if (flexmessage != null)
             {
-                //Proccess only the first message (could it be more in some cases?)
-                var flexmessage = arraybody.OfType<AbstractMessage>().FirstOrDefault();
+                amfMessage.AmfMessage.Data = flexmessage;
 
-                //It is a Flex message after all
-                if (flexmessage != null)
+                var type = flexmessage.GetType();
+
+                //An RPC operation
+                if (type == typeof(RemotingMessage))
                 {
-                    amfMessage.AmfMessage.Data = flexmessage;
-                    message = amfMessage;
+                    var operation = ((RemotingMessage)flexmessage).Operation;
+                    return EndpointHasOperation(_context.ServiceEndpoint, operation) 
+                        ? operation
+                        : AmfOperationKind.Fault;
+                }
 
-                    var type = flexmessage.GetType();
-
-                    //An RPC operation
-                    if (type == typeof(RemotingMessage))
-                    {
-                        var operation = ((RemotingMessage)flexmessage).Operation;
-                        return EndpointHasOperation(_context.ServiceEndpoint, operation) 
-                            ? operation
-                            : AmfOperationKind.Fault;
-                    }
-
-                    //A Flex command message
-                    if (type == typeof(CommandMessage))
-                    {
-                        return AmfOperationKind.Command;
-                    }
+                //A Flex command message
+                if (type == typeof(CommandMessage))
+                {
+                    return AmfOperationKind.Command;
                 }
             }
 
@@ -88,33 +92,11 @@ namespace DotAmf.ServiceModel.Dispatcher
         }
         #endregion
 
-        #region Private methods
+        #region Helper methods
         /// <summary>
-        /// Resolve message's data contracts.
+        /// Check if the endpoint has the operation.
         /// </summary>
-        /// <param name="context">AMF serialization context.</param>
-        /// <param name="amfMessage">AMF message.</param>
-        /// <returns></returns>
-        static private AmfGenericMessage ResolveContracts(AmfSerializationContext context, AmfGenericMessage amfMessage)
-        {
-            var serializer = new DataContractAmfSerializer(context);
-            amfMessage = (AmfGenericMessage)amfMessage.Clone();
-
-            amfMessage.AmfMessage.Data = serializer.ResolveContracts(amfMessage.AmfMessage.Data);
-
-            foreach (var key in amfMessage.AmfHeaders.Keys)
-            {
-                var header = amfMessage.AmfHeaders[key];
-                header.Data = serializer.ResolveContracts(header.Data);
-            }
-
-            return amfMessage;
-        }
-
-        /// <summary>
-        /// Check if an endpoint has the operation.
-        /// </summary>
-        /// <param name="endpoint">Endpoint.</param>
+        /// <param name="endpoint">Endpoint to check.</param>
         /// <param name="operationName">Operation's name.</param>
         static private bool EndpointHasOperation(ServiceEndpoint endpoint, string operationName)
         {

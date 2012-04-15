@@ -35,32 +35,8 @@ namespace DotAmf.ServiceModel.Dispatcher
 
         public void BeforeSendReply(ref Message reply, object correlationState)
         {
-            if(reply is AmfGenericMessage)
-                DereferenceContracts(_context.AmfSerializationContext, ref reply);
-        }
-        #endregion
-
-        #region Private methods
-        /// <summary>
-        /// Dereference message's data contracts.
-        /// </summary>
-        /// <param name="context">AMF serialization context.</param>
-        /// <param name="message">AMF message.</param>
-        /// <returns></returns>
-        static private void DereferenceContracts(AmfSerializationContext context, ref Message message)
-        {
-            var amfMessage = (AmfGenericMessage) message;
-
-            var serializer = new DataContractAmfSerializer(context);
-            amfMessage.AmfMessage.Data = serializer.DereferenceContracts(amfMessage.AmfMessage.Data);
-
-            foreach (var key in amfMessage.AmfHeaders.Keys)
-            {
-                var header = amfMessage.AmfHeaders[key];
-                header.Data = serializer.DereferenceContracts(header.Data);
-            }
-
-            message = amfMessage;
+            //if(reply is AmfGenericMessage)
+            //    DereferenceContracts(_context.SerializationContext, ref reply);
         }
         #endregion
     }

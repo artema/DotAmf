@@ -237,13 +237,34 @@
   <data name="Amf3Decoder_ReadObject_Debug_End" xml:space="preserve">
     <value>Type has been read successfully.</value>
   </data>
-	<data name="Amf3Decoder_ReadObject_Debug_ReadingDynamicField">
+  <data name="Amf3Decoder_ReadObject_Debug_ReadingDynamicField" xml:space="preserve">
     <value>Trying to read a value for a dynamic member '{0}'.</value>
-	</data>
-	<data name="Amf3Decoder_ReadValue_End">
-		<value xml:space="preserve">Finished reading value of type {0} on position {1}.</value>
-	</data>
-	<data name="Amf3Decoder_ReadValue_InvalidMarker.">
-		<value xml:space="preserve">Type marker not found at position {0}.</value>
-	</data>
+  </data>
+  <data name="Amf3Decoder_ReadValue_End" xml:space="preserve">
+    <value>Finished reading value of type {0} on position {1}.</value>
+  </data>
+  <data name="Amf3Decoder_ReadValue_InvalidMarker" xml:space="preserve">
+    <value>Type marker not found at position {0}.</value>
+  </data>
+  <data name="Amf0Decoder_ReadAmfValue_TypeMarkerMissing" xml:space="preserve">
+    <value>Value type marker not found.</value>
+  </data>
+  <data name="Amf0Decoder_ReadAmfValue_AmfVersionNotSupported" xml:space="preserve">
+    <value>AMF version is not supported: {0}</value>
+  </data>
+  <data name="Amf0Decoder_ReadValue_UnknownType" xml:space="preserve">
+    <value>Unknown type with type marker '{0}'.</value>
+  </data>
+  <data name="Amf0Decoder_ReadReference_BadIndex" xml:space="preserve">
+    <value>Referenced object #{0} not found.</value>
+  </data>
+  <data name="Amf0Decoder_ReadPropertiesMap_UnexpectedObjectEnd" xml:space="preserve">
+    <value>Unexpected object end.</value>
+  </data>
+  <data name="Amf0Decoder_ReadPropertiesMap_UnableToDeserialize" xml:space="preserve">
+    <value>Unable to deserialize properties map.</value>
+  </data>
+  <data name="Amf0Decoder_ReadEcmaArray_InvalidLength" xml:space="preserve">
+    <value>Invalid array length.</value>
+  </data>
 </root>

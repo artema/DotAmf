@@ -1,13 +1,21 @@
-﻿using System;
-
-namespace DotAmf.Data
+﻿namespace DotAmf.Data
 {
     /// <summary>
     /// AMF header.
     /// </summary>
-    [Serializable]
     sealed public class AmfHeader
     {
+        #region .ctor
+        public AmfHeader()
+        {}
+
+        public AmfHeader(AmfHeaderDescriptor descriptor)
+        {
+            Name = descriptor.Name;
+            MustUnderstand = descriptor.MustUnderstand;
+        }
+        #endregion
+
         /// <summary>
         /// A remote operation or method to be invoked by this header.
         /// </summary>
@@ -22,5 +30,21 @@ namespace DotAmf.Data
         /// A data associated with the header.
         /// </summary>
         public object Data { get; set; }
+    }
+
+    /// <summary>
+    /// AMF header descriptor.
+    /// </summary>
+    public struct AmfHeaderDescriptor
+    {
+        /// <summary>
+        /// A remote operation or method to be invoked by this header.
+        /// </summary>
+        public string Name;
+
+        /// <summary>
+        /// Client must understand this header or handle an error if he can't.
+        /// </summary>
+        public bool MustUnderstand;
     }
 }

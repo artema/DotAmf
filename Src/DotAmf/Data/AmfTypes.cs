@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 
@@ -9,8 +8,17 @@ namespace DotAmf.Data
     /// AMF object.
     /// </summary>
     [DataContract(Namespace = "http://dotamf.net/")]
-    sealed public class AmfObject : IDictionary<string,object>
+    sealed public class AmfObject : Dictionary<string,object>
     {
+        #region .ctor
+        public AmfObject()
+        {}
+
+        public AmfObject(IDictionary<string,object> dictionary)
+            : base(dictionary)
+        {}
+        #endregion
+        
         #region Constants
         /// <summary>
         /// Externizable data property name.
@@ -20,109 +28,10 @@ namespace DotAmf.Data
 
         #region Properties
         /// <summary>
-        /// Object's properties.
-        /// </summary>
-        [DataMember]
-        public Dictionary<string, object> Properties { get; set; }
-
-        /// <summary>
         /// Type traits.
         /// </summary>
         [DataMember]
         public AmfTypeTraits Traits { get; set; }
-        #endregion
-
-        #region IDictionary implementation
-        public void Add(string key, object value)
-        {
-            Properties.Add(key, value);
-        }
-
-        public bool ContainsKey(string key)
-        {
-            return Properties.ContainsKey(key);
-        }
-
-        public ICollection<string> Keys
-        {
-            get { return Properties.Keys; }
-        }
-
-        public bool Remove(string key)
-        {
-            return Properties.Remove(key);
-        }
-
-        public bool TryGetValue(string key, out object value)
-        {
-            return Properties.TryGetValue(key, out value);
-        }
-
-        public ICollection<object> Values
-        {
-            get { return Properties.Values; }
-        }
-
-        public void Add(KeyValuePair<string, object> item)
-        {
-            Properties.Add(item.Key, item.Value);
-        }
-
-        public void Clear()
-        {
-            Properties.Clear();
-        }
-
-        public bool Contains(KeyValuePair<string, object> item)
-        {
-            return Properties.ContainsKey(item.Key);
-        }
-
-        public void CopyTo(KeyValuePair<string, object>[] array, int arrayIndex)
-        {
-            throw new NotSupportedException();
-        }
-
-        public int Count
-        {
-            get { return Properties.Count; }
-        }
-
-        public bool IsReadOnly
-        {
-            get { return false; }
-        }
-
-        public bool Remove(KeyValuePair<string, object> item)
-        {
-            return Properties.Remove(item.Key);
-        }
-        #endregion
-
-        #region Indexer
-        /// <summary>
-        /// Get or set object's property by name.
-        /// </summary>
-        /// <param name="key">Property name.</param>
-        /// <remarks>Changing this property is effectively
-        /// the same as changing the <c>Properties</c> collection.</remarks>
-        public object this[string key]
-        {
-            get { return Properties[key]; }
-            set { Properties[key] = value; }
-        }
-        #endregion
-
-        #region IEnumerable implementation
-        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
-        {
-            return Properties.GetEnumerator();
-        }
-
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
         #endregion
     }
 

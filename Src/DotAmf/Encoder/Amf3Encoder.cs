@@ -118,12 +118,12 @@ namespace DotAmf.Encoder
             }
 
             //A dictionary
-            if (type == typeof(Dictionary<string,object>))
-            {
-                var untypedObject = DataContractHelper.CreateDynamicObject((Dictionary<string, object>) value);
-                PerformWrite(() => Write(untypedObject));
-                return;
-            }
+            //if (type == typeof(Dictionary<string,object>))
+            //{
+            //    var untypedObject = DataContractHelper.CreateDynamicObject((Dictionary<string, object>) value);
+            //    PerformWrite(() => Write(untypedObject));
+            //    return;
+            //}
 
             //An AMF object
             if (type == typeof(AmfObject))
@@ -239,7 +239,7 @@ namespace DotAmf.Encoder
 
             //A numeric value
             bool isInteger;
-            if (IsNumericType(type, out isInteger))
+            if (DataContractHelper.IsNumericType(type, out isInteger))
             {
                 var intval = isInteger ? Convert.ToInt64(value) : 0;
 
@@ -518,19 +518,19 @@ namespace DotAmf.Encoder
 
             //Write member values
             foreach (var member in obj.Traits.ClassMembers)
-                WriteValue(obj.Properties[member]);
+                WriteValue(obj[member]);
 
             //Dynamic types may have a set of name value pairs
             //for dynamic members after the sealed member section.
             if (obj.Traits.IsDynamic)
             {
-                var dynamicMembers = (from pair in obj.Properties select pair.Key)
+                var dynamicMembers = (from pair in obj select pair.Key)
                                      .Except(obj.Traits.ClassMembers);
 
                 foreach (var member in dynamicMembers)
                 {
                     WriteUtf8(member);
-                    WriteValue(obj.Properties[member]);
+                    WriteValue(obj[member]);
                 }
 
                 WriteUtf8(string.Empty);

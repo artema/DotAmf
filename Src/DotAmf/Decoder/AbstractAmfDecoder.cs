@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using System.Runtime.Serialization;
+using System.Xml;
 using DotAmf.Data;
 
 namespace DotAmf.Decoder
@@ -9,114 +10,124 @@ namespace DotAmf.Decoder
     /// <summary>
     /// Abstract AMF decoder.
     /// </summary>
-    abstract internal class AbstractAmfDecoder : IAmfDecoder
+    abstract class AbstractAmfDecoder : IAmfDecoder
     {
         #region .ctor
         /// <summary>
         /// Constructor.
         /// </summary>
-        /// <param name="reader">AMF stream reader.</param>
-        /// <param name="options">AMF serialization options.</param>
-        protected AbstractAmfDecoder(BinaryReader reader, AmfEncodingOptions options)
+        /// <param name="decodingOptions">AMF decoding options.</param>
+        protected AbstractAmfDecoder(AmfEncodingOptions decodingOptions)
         {
-            if (reader == null) throw new ArgumentNullException("reader");
-            _reader = reader;
-
-            _options = options;
-
-            //In mixed context enviroinments, 
-            //AMF0 is always used by default
-            _currentAmfVersion = _options.UseContextSwitch 
-                ? AmfVersion.Amf0
-                : _options.AmfVersion;
-
-            _references = new List<object>();
+            DecodingOptions = decodingOptions;
         }
         #endregion
 
         #region Data
         /// <summary>
-        /// AMF stream reader.
+        /// AMF decoding options.
         /// </summary>
-        private readonly BinaryReader _reader;
-
-        /// <summary>
-        /// References.
-        /// </summary>
-        private readonly IList<object> _references;
-
-        /// <summary>
-        /// AMF serialization options.
-        /// </summary>
-        private readonly AmfEncodingOptions _options;
-
-        /// <summary>
-        /// Current AMF version.
-        /// </summary>
-        private AmfVersion _currentAmfVersion;
-        #endregion
-
-        #region Properties
-        /// <summary>
-        /// Stream reader.
-        /// </summary>
-        protected BinaryReader Reader { get { return _reader; } }
-
-        /// <summary>
-        /// References.
-        /// </summary>
-        protected IList<object> References { get { return _references; } }
-
-        /// <summary>
-        /// Gets or sets current AMF version.
-        /// </summary>
-        protected AmfVersion CurrentAmfVersion
-        {
-            get { return _currentAmfVersion; }
-            set
-            {
-                if (_currentAmfVersion == value) return;
-                _currentAmfVersion = value;
-
-                #if DEBUG
-                Debug.WriteLine(string.Format(Errors.AbstractAmfDecoder_CurrentAmfVersion_Debug, _currentAmfVersion));
-                #endif
-
-                OnContextSwitchEvent(new EncodingContextSwitchEventArgs(_currentAmfVersion));
-            }
-        }
+        protected AmfEncodingOptions DecodingOptions { get; private set; }
         #endregion
 
         #region IAmfDeserializer implementation
-        public abstract IEnumerable<AmfHeader> ReadPacketHeaders();
+        public abstract AmfHeaderDescriptor ReadPacketHeader(Stream stream);
 
-        public abstract IEnumerable<AmfMessage> ReadPacketMessages();
+        public abstract AmfMessageDescriptor ReadPacketBody(Stream stream);
 
-        public abstract object ReadValue();
-
-        public virtual void ClearReferences()
-        {
-            References.Clear();
-        }
-
-        public event EncodingContextSwitch ContextSwitch;
+        public abstract void Decode(Stream stream, XmlWriter output);
         #endregion
 
-        #region Protected methods
+        #region Proptected methods
         /// <summary>
-        /// Save object to a list of object references.
+        /// Read AMF value from the current position.
         /// </summary>
-        /// <param name="value">Object to save or <c>null</c></param>
-        protected void SaveReference(object value)
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="output">AMFX output writer.</param>
+        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
+        /// <exception cref="FormatException">Invalid data format.</exception>
+        /// <exception cref="SerializationException">Error during deserialization.</exception>
+        protected abstract void ReadAmfValue(AmfEncodingContext context, XmlWriter output = null);
+
+        /// <summary>
+        /// Create default AMF decoding context.
+        /// </summary>
+        protected AmfEncodingContext CreateDefaultContext(BinaryReader reader)
         {
-            References.Add(value);
+            //In mixed context enviroinments, 
+            //AMF0 is always used by default
+            var amfVersion = DecodingOptions.UseContextSwitch
+                ? AmfVersion.Amf0
+                : DecodingOptions.AmfVersion;
+
+            return new AmfEncodingContext(reader, amfVersion);
         }
         #endregion
 
-        #region Event invokers
-        private void OnContextSwitchEvent(EncodingContextSwitchEventArgs e)
+        #region Helper classes
+        /// <summary>
+        /// AMF encoding context.
+        /// </summary>
+        sealed protected class AmfEncodingContext
         {
-            if (ContextSwitch != null) ContextSwitch(this, e);
+            #region .ctor
+            public AmfEncodingContext(BinaryReader reader, AmfVersion version)
+            {
+                Reader = reader;
+
+                AmfVersion = version;
+
+                StringReferences = new List<string>();
+                TraitsReferences = new List<AmfTypeTraits>();
+            }
+            #endregion
+
+            #region Properties
+            /// <summary>
+            /// Stream reader.
+            /// </summary>
+            public BinaryReader Reader { get; private set; }
+
+            /// <summary>
+            /// AMF version.
+            /// </summary>
+            public AmfVersion AmfVersion { get; private set; }
+
+            /// <summary>
+            /// Reference count.
+            /// </summary>
+            public uint References { get; private set; }
+
+            /// <summary>
+            /// String references.
+            /// </summary>
+            public IList<string> StringReferences { get; private set; }
+
+            /// <summary>
+            /// Traits references.
+            /// </summary>
+            public IList<AmfTypeTraits> TraitsReferences { get; private set; }
+            #endregion
+
+            #region Public methods
+            /// <summary>
+            /// Increment the reference counter.
+            /// </summary>
+            public void CountReference()
+            {
+                References++;
+            }
+
+            /// <summary>
+            /// Reset reference counter.
+            /// </summary>
+            public void ResetReferences()
+            {
+                References = 0;
+                StringReferences.Clear();
+                TraitsReferences.Clear();
+            }
+            #endregion
         }
         #endregion
     }

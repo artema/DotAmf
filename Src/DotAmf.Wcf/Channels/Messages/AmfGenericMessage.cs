@@ -36,12 +36,5 @@ namespace DotAmf.ServiceModel.Channels
         /// </summary>
         public AmfMessage AmfMessage { get { return _amfMessage; } }
         #endregion
-
-        #region IClonable implementation
-        override public object Clone()
-        {
-            return new AmfGenericMessage(AmfHeaders, (AmfMessage)AmfMessage.Clone());
-        }
-        #endregion
     }
 }

@@ -1,12 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
 using DotAmf.Data;
 using DotAmf.Decoder;
-using DotAmf.Encoder;
-using DotAmf.IO;
 
 namespace DotAmf.Serialization
 {
@@ -17,149 +17,225 @@ namespace DotAmf.Serialization
     {
         #region .ctor
         /// <summary>
-        /// Constructor.
+        /// Initializes a new instance of the DataContractAmfSerializer class to serialize or deserialize an object of the specified type.
         /// </summary>
-        /// <param name="context">AMF serialization context.</param>
-        /// <param name="encodingOptions">AMF encoding options.</param>
-        public DataContractAmfSerializer(AmfSerializationContext context, AmfEncodingOptions encodingOptions)
+        /// <param name="type">A Type that specifies the type of the instances that is serialized or deserialized.</param>
+        /// <exception cref="InvalidDataContractException">At least one of the types being serialized or deserialized does not conform to data contract rules.
+        /// For example, the DataContractAttribute attribute has not been applied to the type.</exception>
+        public DataContractAmfSerializer(Type type)
+            : this(type, new List<Type>(), CreateDefaultOptions())
         {
-            if (context == null) throw new ArgumentNullException("context");
-            _contractResolver = CreateContractResolver(context);
-            _contractDereferencer = CreateContractDereferencer(context);
-
-            _encodingOptions = encodingOptions;
         }
 
         /// <summary>
-        /// Constructor.
+        /// Initializes a new instance of the DataContractAmfSerializer class to serialize or deserialize an object of the specified type.
         /// </summary>
-        /// <param name="context">AMF serialization context.</param>
-        public DataContractAmfSerializer(AmfSerializationContext context)
-            : this(context, new AmfEncodingOptions { AmfVersion = AmfVersion.Amf3 })
+        /// <param name="type">A Type that specifies the type of the instances that is serialized or deserialized.</param>
+        /// <param name="encodingOptions">AMF encoding options.</param>
+        /// <exception cref="InvalidDataContractException">At least one of the types being serialized or deserialized does not conform to data contract rules.
+        /// For example, the DataContractAttribute attribute has not been applied to the type.</exception>
+        public DataContractAmfSerializer(Type type, AmfEncodingOptions encodingOptions)
+            : this(type, new List<Type>(), encodingOptions)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the DataContractAmfSerializer class to serialize or deserialize an object of the specified type, 
+        /// and a collection of known types that may be present in the object graph.
+        /// </summary>
+        /// <param name="type">A Type that specifies the type of the instances that is serialized or deserialized.</param>
+        /// <param name="knownTypes">An IEnumerable of Type that contains the types that may be present in the object graph.</param>
+        /// <exception cref="InvalidDataContractException">At least one of the types being serialized or deserialized does not conform to data contract rules.
+        /// For example, the DataContractAttribute attribute has not been applied to the type.</exception>
+        public DataContractAmfSerializer(Type type, IEnumerable<Type> knownTypes)
+            : this(type, knownTypes, CreateDefaultOptions())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the DataContractAmfSerializer class to serialize or deserialize an object of the specified type, 
+        /// and a collection of known types that may be present in the object graph.
+        /// </summary>
+        /// <param name="type">A Type that specifies the type of the instances that is serialized or deserialized.</param>
+        /// <param name="knownTypes">An IEnumerable of Type that contains the types that may be present in the object graph.</param>
+        /// <param name="encodingOptions">AMF encoding options.</param>
+        /// <exception cref="InvalidDataContractException">At least one of the types being serialized or deserialized does not conform to data contract rules.
+        /// For example, the DataContractAttribute attribute has not been applied to the type.</exception>
+        public DataContractAmfSerializer(Type type, IEnumerable<Type> knownTypes, AmfEncodingOptions encodingOptions)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+            _type = PrepareDataContract(type);
+
+            if (knownTypes == null) throw new ArgumentNullException("knownTypes");
+            _knownTypes = PrepareDataContracts(knownTypes);
+            _knownTypes[_type.Key] = _type.Value;
+
+            _encodingOptions = encodingOptions;
         }
         #endregion
 
         #region Data
         /// <summary>
-        /// Data contract resolver.
+        /// A Type that specifies the type of the instances that is serialized or deserialized.
         /// </summary>
-        private readonly DataContractSerializer _contractResolver;
+        private readonly KeyValuePair<string, DataContractDescriptor> _type;
 
         /// <summary>
-        /// Data contract dereferencer.
+        /// Contains the types that may be present in the object graph.
         /// </summary>
-        private readonly DataContractSerializer _contractDereferencer;
+        private readonly Dictionary<string, DataContractDescriptor> _knownTypes;
 
         /// <summary>
-        /// Encoding options.
+        /// AMF encoding options.
         /// </summary>
         private readonly AmfEncodingOptions _encodingOptions;
         #endregion
 
-        #region Public methods
+        #region Read methods
         /// <summary>
-        /// Reads a document stream in the AMF (Action Message Format) format 
-        /// and returns the deserialized object.
+        /// Reads a document stream in the AMF (Action Message Format) format and returns the deserialized object.
         /// </summary>
-        /// <remarks>
-        /// Typed AMF object with no matching data contracts will be converted to
-        /// <c>IDictionary&lt;string,object&gt;</c> objects. You can resolve data contracts
-        /// for these object later by calling the <c>ResolveContracts</c> method 
-        /// on the object graph within an appropriate AMF serialization context.
-        /// </remarks>
-        /// <param name="stream">AMF data stream.</param>
-        /// <returns>Object graph.</returns>
-        /// <exception cref="ArgumentNullException"/>
-        /// <exception cref="ArgumentException">Stream does not allow reading or seeking.</exception>
-        /// <exception cref="IOException">Error reading AMF data.</exception>
-        /// <exception cref="SerializationException">Unable to deserialize data contracts.</exception>
+        /// <param name="stream">The Stream to be read.</param>
+        /// <returns>The deserialized object.</returns>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
         public override object ReadObject(Stream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (!stream.CanRead) throw new ArgumentException(Errors.DataContractAmfSerializer_ReadObject_InvalidStream, "stream");
 
-            object graph;
-
-            try
+            using (var buffer = new MemoryStream())
             {
-                //Read raw AMF data into an object graph
-                using (var reader = new AmfStreamReader(stream))
-                {
-                    var decoder = CreateDecoder(reader, _encodingOptions);
+                var amfxwriter = new XmlTextWriter(buffer, Encoding.UTF8);
 
-                    try
-                    {
-                        decoder.ContextSwitch += OnDecoderContextSwitch;
-                        graph = decoder.ReadValue();
-                    }
-                    finally
-                    {
-                        decoder.ContextSwitch -= OnDecoderContextSwitch;
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                throw new IOException(Errors.DataContractAmfSerializer_ReadObject_ErrorReadingAmf, e);
-            }
+                ReadObject(stream, amfxwriter);
 
-            return ResolveContracts(graph);
+                buffer.Position = 0;
+
+                return ReadObject(new XmlTextReader(buffer));
+            }
         }
 
         /// <summary>
-        /// Serializes a specified object to AMF (Action Message Format) data 
-        /// and writes the resulting AMF to a stream.
+        /// Reads a document stream in the AMF (Action Message Format) format and writes
+        /// it in the AMFX (Action Message Format in XML) format,
         /// </summary>
-        /// <param name="stream">Stream to write AMF data.</param>
-        /// <param name="graph">Object graph.</param>
-        /// <exception cref="ArgumentNullException">No stream provided.</exception>
-        /// <exception cref="ArgumentException">Stream does not allow writing.</exception>
-        public override void WriteObject(Stream stream, object graph)
+        /// <param name="stream">The Stream to be read.</param>
+        /// <param name="output">AMFX writer.</param>
+        /// <returns>Object graph.</returns>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
+        public void ReadObject(Stream stream, XmlWriter output)
         {
-            if (stream == null) throw new ArgumentNullException("stream");
-
-            //Check if stream is valid
-            if (!stream.CanWrite)
-                throw new ArgumentException(Errors.DataContractAmfSerializer_WriteObject_InvalidStream, "stream");
-
-            try
+            //Decode AMF packet
+            if (_type.Value.AmfxType == AmfxContent.AmfxRoot)
             {
-                using (var writer = new AmfStreamWriter(stream))
-                {
-                    var encoder = CreateEncoder(writer, _encodingOptions);
-
-                    try
-                    {
-                        encoder.ContextSwitch += OnEncoderContextSwitch;
-                        encoder.WriteValue(graph);
-                    }
-                    finally
-                    {
-                        encoder.ContextSwitch -= OnEncoderContextSwitch;
-                    }
-                }
+                var decoder = new AmfPacketDecoder(_encodingOptions);
+                decoder.Decode(stream, output);
             }
-            catch (Exception e)
+            //Decode generic AMF data
+            else
             {
-                throw new IOException(Errors.DataContractAmfSerializer_WriteObject_ErrorWritingAmf, e);
+                var decoder = CreateDecoder(_encodingOptions);
+                decoder.Decode(stream, output);
             }
         }
 
         /// <summary>
-        /// Reads the XML document mapped from AMF (Action Message Format) 
+        /// Reads the XML document mapped from AMFX (Action Message Format in XML) 
+        /// with an XmlDictionaryReader and returns the deserialized object.
+        /// </summary>
+        /// <param name="reader">XML reader.</param>
+        /// <returns>Object graph.</returns>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
+        public override object ReadObject(XmlDictionaryReader reader)
+        {
+            return ReadObject((XmlReader)reader);
+        }
+
+        /// <summary>
+        /// Reads the AMFX document mapped from AMF with an XmlDictionaryReader and returns the deserialized object;
+        /// it also enables you to specify whether the serializer should verify that it is positioned on an appropriate
+        /// element before attempting to deserialize.
+        /// </summary>
+        /// <param name="reader">An XmlDictionaryReader used to read the AMFX document mapped from AMF.</param>
+        /// <param name="verifyObjectName"><c>true</c> to check whether the enclosing XML element name and namespace 
+        /// correspond to the expected name and namespace; otherwise, <c>false</c> to skip the verification.</param>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
+        public override object ReadObject(XmlDictionaryReader reader, bool verifyObjectName)
+        {
+            return ReadObject((XmlReader)reader, verifyObjectName);
+        }
+
+        /// <summary>
+        /// Reads the XML document mapped from AMFX (Action Message Format in XML) 
         /// with an XmlReader and returns the deserialized object.
         /// </summary>
         /// <param name="reader">XML reader.</param>
         /// <returns>Object graph.</returns>
-        /// <exception cref="SerializationException">Unable to deserialize data contracts.</exception>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
         public override object ReadObject(XmlReader reader)
         {
-            return ReadObject(reader, _contractResolver);
+            if (reader == null) throw new ArgumentNullException("reader");
+
+            var context = new SerializationContext { KnownTypes = _knownTypes };
+
+            return _type.Value.AmfxType == AmfxContent.AmfxRoot
+                ? DeserializePacket(reader, context) //Special case
+                : Deserialize(reader, context);
         }
 
         /// <summary>
-        /// Serializes an object to XML that may be mapped to Action Message Format (AMF). 
+        /// Reads the AMFX document mapped from AMF with an XmlReader and returns the deserialized object;
+        /// it also enables you to specify whether the serializer should verify that it is positioned on an appropriate
+        /// element before attempting to deserialize.
+        /// </summary>
+        /// <param name="reader">An XmlReader used to read the AMFX document mapped from AMF.</param>
+        /// <param name="verifyObjectName"><c>true</c> to check whether the enclosing XML element name and namespace 
+        /// correspond to the expected name and namespace; otherwise, <c>false</c> to skip the verification.</param>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
+        public override object ReadObject(XmlReader reader, bool verifyObjectName)
+        {
+            if (reader == null) throw new ArgumentNullException("reader");
+            return verifyObjectName && !IsStartObject(reader)
+                ? null
+                : ReadObject(reader);
+        }
+
+        /// <summary>
+        /// Gets a value that specifies whether the XmlDictionaryReader is positioned over 
+        /// an AMFX element that represents an object the serializer can deserialize from.
+        /// </summary>
+        /// <param name="reader">The XmlDictionaryReader used to read the AMFX stream mapped from AMF.</param>
+        /// <returns><c>true</c> if the reader is positioned correctly; otherwise, <c>false</c>.</returns>
+        public override bool IsStartObject(XmlDictionaryReader reader)
+        {
+            if (reader == null) throw new ArgumentNullException("reader");
+            return IsStartObject((XmlReader)reader);
+        }
+
+        /// <summary>
+        /// Gets a value that specifies whether the XmlReader is positioned over 
+        /// an AMFX element that represents an object the serializer can deserialize from.
+        /// </summary>
+        /// <param name="reader">The XmlReader used to read the AMFX stream mapped from AMF.</param>
+        /// <returns><c>true</c> if the reader is positioned correctly; otherwise, <c>false</c>.</returns>
+        public override bool IsStartObject(XmlReader reader)
+        {
+            if (reader == null) throw new ArgumentNullException("reader");
+            return reader.NodeType == XmlNodeType.Element && reader.Name == _type.Value.AmfxType;
+        }
+        #endregion
+
+        #region Write methods
+        public override void WriteObject(Stream stream, object graph)
+        {
+            if (stream == null) throw new ArgumentNullException("stream");
+            if (!stream.CanWrite) throw new ArgumentException(Errors.DataContractAmfSerializer_WriteObject_InvalidStream, "stream");
+
+            throw new NotSupportedException();
+        }
+
+        /// <summary>
+        /// Serializes an object to XML that may be mapped to Action Message Format in XML (AMFX). 
         /// Writes all the object data, including the starting XML element, content, 
         /// and closing element, with an XmlWriter. 
         /// </summary>
@@ -168,130 +244,10 @@ namespace DotAmf.Serialization
         /// <exception cref="SerializationException">Unable to serialize data contracts.</exception>
         public override void WriteObject(XmlWriter writer, object graph)
         {
-            WriteObject(writer, graph, _contractResolver);
-        }
-
-        /// <summary>
-        /// Resolve data contracts in untyped or partly unresolved objects graph.
-        /// </summary>
-        /// <param name="graph">Objects graph.</param>
-        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
-        public object ResolveContracts(object graph)
-        {
-            if (graph == null) return null;
-
-            //Nothing to resolve here
-            if (graph.GetType().IsValueType) return graph;
-
-            object result;
-
-            try
-            {
-                using (var ms = new MemoryStream())
-                {
-                    //Serialize AMF objects into proxy contracts
-                    var writer = new XmlTextWriter(ms, Encoding.UTF8);
-                    WriteObject(writer, graph, _contractResolver);
-                    writer.Flush();
-
-                    //Then try to deserialize using current contracts
-                    ms.Position = 0;
-
-                    //Custom XML reader is required in order to bypass
-                    //XML namespace constraints during deserialization
-                    var reader = new AmfXmlTextReader(ms);
-                    result = ReadObject(reader, _contractResolver);
-                    reader.Close();
-                }
-            }
-            catch (Exception e)
-            {
-                throw new SerializationException(Errors.DataContractAmfSerializer_ReadObject_ContractsError, e);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Dereference data contracts into untyped objects graph.
-        /// </summary>
-        /// <param name="graph">Objects graph.</param>
-        /// <exception cref="SerializationException">Unable to dereference data contracts.</exception>
-        public object DereferenceContracts(object graph)
-        {
-            if (graph == null) return null;
-
-            //Nothing to dereference here
-            if (graph.GetType().IsValueType) return graph;
-
-            object result;
-
-            try
-            {
-                using (var ms = new MemoryStream())
-                {
-                    //Serialize AMF objects into proxy contracts
-                    var writer = new XmlTextWriter(ms, Encoding.UTF8);
-                    WriteObject(writer, graph, _contractDereferencer);
-                    writer.Flush();
-
-                    //Then try to deserialize using current contracts
-                    ms.Position = 0;
-
-                    //Custom XML reader is required in order to bypass
-                    //XML namespace constraints during deserialization
-                    var reader = new AmfXmlTextReader(ms);
-                    result = ReadObject(reader, _contractDereferencer);
-                    reader.Close();
-                }
-            }
-            catch (Exception e)
-            {
-                throw new SerializationException(Errors.DataContractAmfSerializer_ReadObject_ContractsError, e);
-            }
-
-            return result;
-        }
-        #endregion
-
-        #region Private methods
-        static private object ReadObject(XmlReader reader, DataContractSerializer serializer)
-        {
-            try
-            {
-                return serializer.ReadObject(reader);
-            }
-            catch (Exception e)
-            {
-                throw new SerializationException(Errors.DataContractAmfSerializer_ReadObject_ContractsError, e);
-            }
-        }
-
-        static private void WriteObject(XmlWriter writer, object graph, DataContractSerializer serializer)
-        {
-            try
-            {
-                serializer.WriteObject(writer, graph);
-            }
-            catch (Exception e)
-            {
-                throw new SerializationException(Errors.DataContractAmfSerializer_WriteObject_ContractsError, e);
-            }
-        }
-        #endregion
-
-        #region Abstract methods implementation
-        public override bool IsStartObject(XmlDictionaryReader reader)
-        {
             throw new NotSupportedException();
         }
 
-        public override object ReadObject(XmlDictionaryReader reader, bool verifyObjectName)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void WriteEndObject(XmlDictionaryWriter writer)
+        public override void WriteStartObject(XmlDictionaryWriter writer, object graph)
         {
             throw new NotSupportedException();
         }
@@ -301,59 +257,286 @@ namespace DotAmf.Serialization
             throw new NotSupportedException();
         }
 
-        public override void WriteStartObject(XmlDictionaryWriter writer, object graph)
+        public override void WriteEndObject(XmlDictionaryWriter writer)
         {
             throw new NotSupportedException();
         }
         #endregion
 
-        #region Factories
+        #region Deserialization
         /// <summary>
-        /// Create data contract resolver.
+        /// Deserialize an AMFX packet.
         /// </summary>
-        /// <param name="context">Serialization context.</param>
-        static private DataContractSerializer CreateContractResolver(AmfSerializationContext context)
+        /// <exception cref="SerializationException">Error during deserialization.</exception>
+        private static object DeserializePacket(XmlReader reader, SerializationContext context)
         {
-            return new DataContractSerializer(
-                typeof(object),
-                AmfDataContractDereferencer.KnownTypes,
-                int.MaxValue,
-                false,
-                true,
-                new AmfDataContractResolver.ProxySurrogate(context.CreateProxyObject),
-                context.ContractResolver
-            );
+            if (reader == null) throw new ArgumentNullException("reader");
+            if (context == null) throw new ArgumentNullException("context");
+
+            var packet = new AmfPacket();
+
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element) continue;
+
+                #region Read packet header
+                if (reader.Name == AmfxContent.PacketHeader)
+                {
+                    var header = new AmfHeader();
+                    var headerreader = reader.ReadSubtree();
+                    headerreader.MoveToContent();
+
+                    header.Name = headerreader.GetAttribute(AmfxContent.PacketHeaderName);
+                    header.MustUnderstand = (headerreader.GetAttribute(AmfxContent.PacketHeaderMustUnderstand) == AmfxContent.True);
+
+                    while (headerreader.Read())
+                    {
+                        //Skip until header content is found, if any
+                        if (reader.NodeType != XmlNodeType.Element || reader.Name == AmfxContent.PacketHeader)
+                            continue;
+
+                        header.Data = Deserialize(headerreader, context);
+                        break;
+                    }
+
+                    packet.Headers[header.Name] = header;
+                    headerreader.Close();
+                    continue;
+                }
+                #endregion
+
+                #region Read packet body
+                if (reader.Name == AmfxContent.PacketBody)
+                {
+                    var message = new AmfMessage();
+                    var bodyreader = reader.ReadSubtree();
+                    bodyreader.MoveToContent();
+
+                    message.Target = bodyreader.GetAttribute(AmfxContent.PacketBodyTarget);
+                    message.Response = bodyreader.GetAttribute(AmfxContent.PacketBodyResponse);
+
+                    while (bodyreader.Read())
+                    {
+                        //Skip until body content is found, if any
+                        if (reader.NodeType != XmlNodeType.Element || reader.Name == AmfxContent.PacketBody)
+                            continue;
+
+                        message.Data = Deserialize(bodyreader, context);
+                        break;
+                    }
+
+                    packet.Messages.Add(message);
+                    bodyreader.Close();
+                    continue;
+                }
+                #endregion
+            }
+
+            return packet;
         }
 
         /// <summary>
-        /// Create data contract dereferencer.
+        /// Deserialize AMFX data.
         /// </summary>
-        /// <param name="context">Serialization context.</param>
-        static private DataContractSerializer CreateContractDereferencer(AmfSerializationContext context)
+        /// <exception cref="SerializationException">Error during deserialization.</exception>
+        private static object Deserialize(XmlReader reader, SerializationContext context)
         {
-            return new DataContractSerializer(
-                typeof(object),
-                AmfDataContractDereferencer.KnownTypes,
-                int.MaxValue,
-                false,
-                true,
-                new AmfDataContractDereferencer.DereferencedSurrogate(context.CreateDereferencedObject),
-                context.ContractDereferencer
-            );
+            if (reader == null) throw new ArgumentNullException("reader");
+            if (context == null) throw new ArgumentNullException("context");
+            if (reader.NodeType != XmlNodeType.Element) throw new XmlException(string.Format("Element node expected, {0} found.", reader.NodeType));
+
+            #region Primitive values
+            switch (reader.Name)
+            {
+                case AmfxContent.Null:
+                    return null;
+
+                case AmfxContent.True:
+                    return true;
+
+                case AmfxContent.False:
+                    return false;
+            }
+            #endregion
+
+            #region Complex values
+            var nodereader = reader.ReadSubtree();
+            nodereader.MoveToContent();
+
+            object value;
+
+            switch (nodereader.Name)
+            {
+                case AmfxContent.Integer:
+                    value = ReadInteger(nodereader);
+                    break;
+
+                case AmfxContent.Double:
+                    value = ReadDouble(nodereader);
+                    break;
+
+                case AmfxContent.String:
+                    value = ReadString(nodereader, context);
+                    break;
+
+                case AmfxContent.Array:
+                    value = ReadArray(nodereader, context);
+                    break;
+
+                case AmfxContent.Object:
+                    value = ReadObject(nodereader, context);
+                    break;
+
+                default:
+                    throw new NotSupportedException("Unexpected AMFX type: " + nodereader.Name);
+            }
+
+            nodereader.Close();
+            return value;
+            #endregion
+        }
+
+        private static int ReadInteger(XmlReader reader)
+        {
+            return Convert.ToInt32(reader.ReadString());
+        }
+
+        private static double ReadDouble(XmlReader reader)
+        {
+            return Convert.ToDouble(reader.ReadString());
+        }
+
+        private static string ReadString(XmlReader reader, SerializationContext context)
+        {
+            var text = reader.ReadString();
+            return text;
+        }
+
+        private static object[] ReadArray(XmlReader reader, SerializationContext context)
+        {
+            var length = Convert.ToInt32(reader.GetAttribute(AmfxContent.ArrayLength));
+
+            var result = new object[length];
+            context.References.Add(new ObjectProxy(result));
+
+            if (length == 0) return result;
+
+            reader.MoveToContent();
+
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element)
+                    continue;
+
+                for (var i = 0; i < length; i++)
+                {
+                    var itemreader = reader.ReadSubtree();
+                    itemreader.MoveToContent();
+                    result[i] = Deserialize(itemreader, context);
+                    itemreader.Close();
+                }
+            }
+
+            return result;
+        }
+
+        private static object ReadObject(XmlReader reader, SerializationContext context)
+        {
+            var traits = new AmfTypeTraits();
+            var properties = new Dictionary<string, object>();
+
+            var proxy = new ObjectProxy();
+            context.References.Add(proxy);
+
+            if(reader.HasAttributes)
+                traits.TypeName = reader.GetAttribute(AmfxContent.ObjectType);
+
+            #region Read traits
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element && reader.Name != AmfxContent.Traits) continue;
+
+                if (!reader.IsEmptyElement)
+                {
+                    var traitsReader = reader.ReadSubtree();
+                    traitsReader.MoveToContent();
+                    traitsReader.ReadStartElement();
+
+                    var members = new List<string>();
+
+                    while (reader.NodeType != XmlNodeType.EndElement)
+                        members.Add(traitsReader.ReadElementContentAsString());
+
+                    traits.ClassMembers = members.ToArray();
+                    traitsReader.Close();
+                }
+
+                break;
+            }
+            #endregion
+
+            #region Read members
+            var i = 0;
+
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element) continue;
+
+                var memberName = traits.ClassMembers[i];
+                var memberReader = reader.ReadSubtree();
+                memberReader.MoveToContent();
+                var memberValue = Deserialize(memberReader, context);
+                memberReader.Close();
+
+                properties[memberName] = memberValue;
+                i++;
+            }
+            #endregion
+
+            #region Instantiate type
+            if (!string.IsNullOrEmpty(traits.TypeName))
+            {
+                if (!context.KnownTypes.ContainsKey(traits.TypeName))
+                    throw new SerializationException(string.Format("Unable to find data contract for type alias '{0}'.", traits.TypeName));
+
+                var typeDescriptor = context.KnownTypes[traits.TypeName];
+
+                proxy.Reference = DataContractHelper.InstantiateContract(typeDescriptor.Type, properties);
+            }
+            else
+                proxy.Reference = properties;
+            #endregion
+
+            return proxy.Reference;
+        }
+        #endregion
+
+        #region Helper methods
+        /// <summary>
+        /// Create default AMF encoding options.
+        /// </summary>
+        static private AmfEncodingOptions CreateDefaultOptions()
+        {
+            return new AmfEncodingOptions
+                       {
+                           AmfVersion = AmfVersion.Amf3,
+                           UseContextSwitch = false
+                       };
         }
 
         /// <summary>
         /// Create AMF decoder.
         /// </summary>
-        static private IAmfDecoder CreateDecoder(BinaryReader reader, AmfEncodingOptions encodingOptions)
+        /// <param name="encodingOptions">AMF decoding options.</param>
+        static private IAmfDecoder CreateDecoder(AmfEncodingOptions encodingOptions)
         {
             switch (encodingOptions.AmfVersion)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Decoder(reader, encodingOptions);
+                    return new Amf0Decoder(encodingOptions);
 
                 case AmfVersion.Amf3:
-                    return new Amf3Decoder(reader, encodingOptions);
+                    return new Amf3Decoder(encodingOptions);
 
                 default:
                     throw new NotSupportedException();
@@ -361,65 +544,151 @@ namespace DotAmf.Serialization
         }
 
         /// <summary>
-        /// Create AMF encoder.
+        /// Prepare a data contract.
         /// </summary>
-        static private IAmfEncoder CreateEncoder(BinaryWriter writer, AmfEncodingOptions encodingOptions)
+        /// <param name="type">The type to prepare.</param>
+        /// <returns>An alias-contract pair.</returns>
+        /// <exception cref="InvalidDataContractException">Type does not conform to data contract rules.
+        /// For example, the DataContractAttribute attribute has not been applied to the type.</exception>
+        static private KeyValuePair<string, DataContractDescriptor> PrepareDataContract(Type type)
         {
-            switch (encodingOptions.AmfVersion)
+            if (type == null) throw new ArgumentNullException("type");
+
+            try
             {
-                case AmfVersion.Amf0:
-                    return new Amf0Encoder(writer, encodingOptions);
+                var alias = DataContractHelper.GetContractAlias(type);
+                var descriptor = new DataContractDescriptor
+                                     {
+                                         Type = type,
+                                         AmfxType = GetAmfxType(type)
+                                     };
 
-                case AmfVersion.Amf3:
-                    return new Amf3Encoder(writer, encodingOptions);
-
-                default:
-                    throw new NotSupportedException();
+                return new KeyValuePair<string, DataContractDescriptor>(alias, descriptor);
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataContractException(string.Format("Type '{0}' is not a valid data contract.", type.FullName), e);
             }
         }
-        #endregion
 
-        #region Event handlers
-        static private void OnDecoderContextSwitch(object sender, EncodingContextSwitchEventArgs e)
-        {
-            var decoder = (IAmfDecoder)sender;
-            decoder.ClearReferences();
-        }
-
-        static private void OnEncoderContextSwitch(object sender, EncodingContextSwitchEventArgs e)
-        {
-            var encoder = (IAmfEncoder)sender;
-            encoder.ClearReferences();
-        }
-        #endregion
-
-        #region AMF XML reader
         /// <summary>
-        /// AMF XML reader.
+        /// Prepare data contracts.
         /// </summary>
-        sealed private class AmfXmlTextReader : XmlTextReader
+        /// <param name="knownTypes">The types that may be present in the object graph.</param>
+        /// <returns>An alias-contract dictionary object.</returns>
+        /// <exception cref="InvalidDataContractException">At least one of the types does not conform to data contract rules.
+        /// For example, the DataContractAttribute attribute has not been applied to the type.</exception>
+        static private Dictionary<string, DataContractDescriptor> PrepareDataContracts(IEnumerable<Type> knownTypes)
+        {
+            if (knownTypes == null) throw new ArgumentNullException("knownTypes");
+
+            return knownTypes.Select(PrepareDataContract).ToDictionary(pair => pair.Key, pair => pair.Value);
+        }
+
+        /// <summary>
+        /// Get AMFX type for a CLR type.
+        /// </summary>
+        static private string GetAmfxType(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+
+            //A boolean value
+            if (type == typeof(bool))
+                return AmfxContent.Boolean;
+
+            //A string
+            if (type == typeof(string))
+                return AmfxContent.String;
+
+            //A string
+            if (type == typeof(DateTime))
+                return AmfxContent.Date;
+
+            //Check if type is a number
+            bool isInteger;
+            if (DataContractHelper.IsNumericType(type, out isInteger))
+                return isInteger ? AmfxContent.Integer : AmfxContent.Double;
+
+            //An array
+            if (type.IsArray)
+                return AmfxContent.Array;
+
+            //An enumeration
+            if (type.IsEnum)
+                return AmfxContent.Integer;
+
+            //An XML document
+            if (type == typeof(XmlDocument))
+                return AmfxContent.Xml;
+
+            //A special case
+            if (type == typeof(AmfPacket))
+                return AmfxContent.AmfxRoot;
+
+            return AmfxContent.Object;
+        }
+        #endregion
+
+        #region Helper classes
+        /// <summary>
+        /// Data contract descriptor.
+        /// </summary>
+        sealed private class DataContractDescriptor
+        {
+            /// <summary>
+            /// Data contract type type.
+            /// </summary>
+            public Type Type { get; set; }
+
+            /// <summary>
+            /// Data contract type's AMFX type.
+            /// </summary>
+            public string AmfxType { get; set; }
+        }
+
+        /// <summary>
+        /// Serialized object proxy.
+        /// </summary>
+        sealed private class ObjectProxy
         {
             #region .ctor
-            public AmfXmlTextReader(Stream stream)
-                : base(stream)
-            { }
+            public ObjectProxy()
+            {}
+
+            public ObjectProxy(object reference)
+            {
+                Reference = reference;
+            }
             #endregion
 
-            #region Overriden methods
-            public override bool IsStartElement(string localname, string ns)
+            /// <summary>
+            /// Actual object reference.
+            /// </summary>
+            public object Reference { get; set; }
+        }
+
+        /// <summary>
+        /// AMFX serialization context.
+        /// </summary>
+        sealed private class SerializationContext
+        {
+            #region .ctor
+            public SerializationContext()
             {
-                var nodeType = MoveToContent();
-
-                //Check if node type is valid
-                if (nodeType != XmlNodeType.Element) return false;
-
-                //Don't perform namespace checks for AMF types
-                if (NamespaceURI == AmfSerializationContext.AmfNamespace)
-                    return (LocalName == localname);
-
-                //Do the regular routine for all other types
-                return (LocalName == localname && NamespaceURI == ns);
+                References = new List<ObjectProxy>();
             }
+            #endregion
+
+            #region Properties
+            /// <summary>
+            /// Contains the types that may be present in the object graph.
+            /// </summary>
+            public Dictionary<string, DataContractDescriptor> KnownTypes { get; set; }
+
+            /// <summary>
+            /// Object references.
+            /// </summary>
+            public IList<ObjectProxy> References { get; private set; }
             #endregion
         }
         #endregion

@@ -1,6 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
+using System.Xml;
 using DotAmf.Data;
 
 namespace DotAmf.Decoder
@@ -11,36 +12,26 @@ namespace DotAmf.Decoder
     public interface IAmfDecoder
     {
         /// <summary>
-        /// Read a value.
+        /// Decode data to AMFX format.
         /// </summary>
+        /// <param name="stream">AMF stream.</param>
+        /// <param name="output">AMFX output writer.</param>
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
         /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
         /// <exception cref="InvalidOperationException">Invalid AMF context.</exception>
-        object ReadValue();
+        void Decode(Stream stream, XmlWriter output);
 
         /// <summary>
-        /// Read AMF packet headers.
+        /// Read an AMF packet header descriptor.
         /// </summary>
-        /// <returns>Lazy headers reader.</returns>
         /// <exception cref="FormatException">Data has unknown format.</exception>
-        IEnumerable<AmfHeader> ReadPacketHeaders();
+        AmfHeaderDescriptor ReadPacketHeader(Stream stream);
 
         /// <summary>
-        /// Read AMF packet messages.
+        /// Read AMF packet body descriptor.
         /// </summary>
-        /// <returns>Lazy messages reader.</returns>
         /// <exception cref="FormatException">Data has unknown format.</exception>
-        IEnumerable<AmfMessage> ReadPacketMessages();
-
-        /// <summary>
-        /// Clear stored references.
-        /// </summary>
-        void ClearReferences();
-
-        /// <summary>
-        /// AMF encoding context switch event.
-        /// </summary>
-        event EncodingContextSwitch ContextSwitch;
+        AmfMessageDescriptor ReadPacketBody(Stream stream);
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace DotAmf.Data
+﻿using System;
+
+namespace DotAmf.Data
 {
     /// <summary>
     /// AMF packet version.
@@ -15,4 +17,27 @@
         /// </summary>
         Amf3 = 3
     }
+
+    #region Extension
+    static internal class AmfVersionExtension
+    {
+        /// <summary>
+        /// Convert version enumeration value to an AMFX value.
+        /// </summary>
+        static public string ToAmfxName(this AmfVersion value)
+        {
+            switch(value)
+            {
+                case AmfVersion.Amf0:
+                    return AmfxContent.VersionAmf0;
+
+                case AmfVersion.Amf3:
+                    return AmfxContent.VersionAmf3;
+
+                default:
+                    throw new NotSupportedException("Version '" + value + "' is not supported.");
+            }
+        }
+    }
+    #endregion
 }

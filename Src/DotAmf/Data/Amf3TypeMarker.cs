@@ -1,4 +1,6 @@
-﻿namespace DotAmf.Data
+﻿using System;
+
+namespace DotAmf.Data
 {
     /// <summary>
     /// AMF3 data type marker.
@@ -70,4 +72,56 @@
         /// </summary>
         ByteArray = 0x0C
     }
+
+    #region Extension
+    static internal class Amf3TypeMarkerExtension
+    {
+        /// <summary>
+        /// Convert type marker to an AMFX type name.
+        /// </summary>
+        static public string ToAmfxName(this Amf3TypeMarker value)
+        {
+            switch (value)
+            {
+                case Amf3TypeMarker.Null:
+                case Amf3TypeMarker.Undefined:
+                    return AmfxContent.Null;
+
+                case Amf3TypeMarker.False:
+                    return AmfxContent.False;
+
+                case Amf3TypeMarker.True:
+                    return AmfxContent.True;
+
+                case Amf3TypeMarker.Integer:
+                    return AmfxContent.Integer;
+
+                case Amf3TypeMarker.Double:
+                    return AmfxContent.Double;
+
+                case Amf3TypeMarker.String:
+                    return AmfxContent.String;
+
+                case Amf3TypeMarker.Date:
+                    return AmfxContent.Date;
+
+                case Amf3TypeMarker.ByteArray:
+                    return AmfxContent.ByteArray;
+
+                case Amf3TypeMarker.Xml:
+                case Amf3TypeMarker.XmlDocument:
+                    return AmfxContent.Xml;
+
+                case Amf3TypeMarker.Array:
+                    return AmfxContent.Array;
+
+                case Amf3TypeMarker.Object:
+                    return AmfxContent.Object;
+
+                default:
+                    throw new NotSupportedException("Type '" + value + "' is not supported.");
+            }
+        }
+    }
+    #endregion
 }
