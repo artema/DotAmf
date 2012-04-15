@@ -7,11 +7,11 @@ using System.Runtime.Serialization;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("DotAmf")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("AMF0, AMF3 and AMFX serializer.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("DotAmf")]
-[assembly: AssemblyCopyright("Copyright ©  2012")]
+[assembly: AssemblyCopyright("Copyright © Artem Abashev 2012")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
