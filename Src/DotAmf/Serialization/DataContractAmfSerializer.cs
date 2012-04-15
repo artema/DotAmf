@@ -383,8 +383,20 @@ namespace DotAmf.Serialization
                     value = ReadArray(nodereader, context);
                     break;
 
+                case AmfxContent.Date:
+                    value = ReadDate(nodereader, context);
+                    break;
+
+                case AmfxContent.Xml:
+                    value = ReadXml(nodereader, context);
+                    break;
+
                 case AmfxContent.Object:
                     value = ReadObject(nodereader, context);
+                    break;
+
+                case AmfxContent.Reference:
+                    value = ReadReference(nodereader, context);
                     break;
 
                 default:
@@ -408,8 +420,58 @@ namespace DotAmf.Serialization
 
         private static string ReadString(XmlReader reader, SerializationContext context)
         {
+            if(reader.IsEmptyElement)
+            {
+                if(reader.AttributeCount > 0)
+                {
+                    var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.StringId));
+                    return context.StringReferences[index];
+                }
+
+                return string.Empty;
+            }
+
             var text = reader.ReadString();
+            context.StringReferences.Add(text);
+
             return text;
+        }
+
+        private static DateTime ReadDate(XmlReader reader, SerializationContext context)
+        {
+            var reference = new ObjectProxy();
+            context.References.Add(reference);
+
+            var milliseconds = Convert.ToInt64(reader.ReadString());
+            var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
+            var offset = TimeSpan.FromMilliseconds(milliseconds);
+            var result = origin + offset;
+
+            reference.Reference = result;
+
+            return result;
+        }
+
+        private static XmlDocument ReadXml(XmlReader reader, SerializationContext context)
+        {
+            var reference = new ObjectProxy();
+            context.References.Add(reference);
+
+            var encoded = reader.ReadString();
+            var decoded = Convert.FromBase64String(encoded);
+            var text = Encoding.UTF8.GetString(decoded);
+            var result = new XmlDocument();
+            result.LoadXml(text);
+
+            reference.Reference = result;
+
+            return result;
+        }
+
+        private static object ReadReference(XmlReader reader, SerializationContext context)
+        {
+            var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.ReferenceId));
+            return context.References[index].Reference;
         }
 
         private static object[] ReadArray(XmlReader reader, SerializationContext context)
@@ -442,14 +504,16 @@ namespace DotAmf.Serialization
 
         private static object ReadObject(XmlReader reader, SerializationContext context)
         {
-            var traits = new AmfTypeTraits();
             var properties = new Dictionary<string, object>();
 
             var proxy = new ObjectProxy();
             context.References.Add(proxy);
 
+            AmfTypeTraits traits = null;
+            var typeName = string.Empty;
+
             if(reader.HasAttributes)
-                traits.TypeName = reader.GetAttribute(AmfxContent.ObjectType);
+                typeName = reader.GetAttribute(AmfxContent.ObjectType);
 
             #region Read traits
             while (reader.Read())
@@ -458,6 +522,9 @@ namespace DotAmf.Serialization
 
                 if (!reader.IsEmptyElement)
                 {
+                    traits = new AmfTypeTraits{ TypeName = typeName };
+                    context.TraitsReferences.Add(traits);
+
                     var traitsReader = reader.ReadSubtree();
                     traitsReader.MoveToContent();
                     traitsReader.ReadStartElement();
@@ -470,9 +537,16 @@ namespace DotAmf.Serialization
                     traits.ClassMembers = members.ToArray();
                     traitsReader.Close();
                 }
+                else
+                {
+                    var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.TraitsId));
+                    traits = context.TraitsReferences[index];
+                }
 
                 break;
             }
+
+            if(traits == null) throw new SerializationException("Object traits not found.");
             #endregion
 
             #region Read members
@@ -676,6 +750,8 @@ namespace DotAmf.Serialization
             public SerializationContext()
             {
                 References = new List<ObjectProxy>();
+                StringReferences = new List<string>();
+                TraitsReferences = new List<AmfTypeTraits>();
             }
             #endregion
 
@@ -689,6 +765,16 @@ namespace DotAmf.Serialization
             /// Object references.
             /// </summary>
             public IList<ObjectProxy> References { get; private set; }
+
+            /// <summary>
+            /// String references.
+            /// </summary>
+            public IList<string> StringReferences { get; private set; }
+
+            /// <summary>
+            /// Traits references.
+            /// </summary>
+            public IList<AmfTypeTraits> TraitsReferences { get; private set; }
             #endregion
         }
         #endregion
