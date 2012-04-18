@@ -6,23 +6,19 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
 using DotAmf.Data;
-using DotAmf.Serialization;
+using DotAmf.IO;
 
 namespace DotAmf.Encoder
 {
     /// <summary>
     /// AMF3 encoder.
     /// </summary>
-    sealed internal class Amf3Encoder : Amf0Encoder
+    class Amf3Encoder : Amf0Encoder
     {
         #region .ctor
-        public Amf3Encoder(BinaryWriter writer, AmfEncodingOptions options)
-            : base(writer, options)
+        public Amf3Encoder(AmfEncodingOptions encodingOptions)
+            : base(encodingOptions)
         {
-            _rollbackAction = () => CurrentAmfVersion = options.AmfVersion;
-
-            _stringReferences = new List<string>();
-            _traitReferences = new List<AmfTypeTraits>();
         }
         #endregion
 
@@ -45,154 +41,57 @@ namespace DotAmf.Encoder
         private const int MaxInt29Value = 268435455;
         #endregion
 
-        #region Data
-        /// <summary>
-        /// Strings references.
-        /// </summary>
-        private readonly List<string> _stringReferences;
-
-        /// <summary>
-        /// Object traits references.
-        /// </summary>
-        private readonly List<AmfTypeTraits> _traitReferences;
-        #endregion
-
-        #region References
-        /// <summary>
-        /// Save a string to a list of string references.
-        /// </summary>
-        /// <param name="value">String to save.</param>
-        /// <returns><c>null</c> if the item was added to the reference list,
-        /// or a position in reference list if the item has already been added.</returns>
-        private int? SaveReference(string value)
-        {
-            var index = _stringReferences.BinarySearch(value);
-            if (index >= 0) return index;
-
-            _stringReferences.Add(value);
-            return null;
-        }
-
-        /// <summary>
-        /// Save object traits to a list of traits references.
-        /// </summary>
-        /// <param name="value">Traits to save.</param>
-        /// <returns><c>null</c> if the item was added to the reference list,
-        /// or a position in reference list if the item has already been added.</returns>
-        private int? SaveReference(AmfTypeTraits value)
-        {
-            //There is currently no way to compare traits
-            //var index = _traitReferences.BinarySearch(value);
-            //if (index >= 0) return index;
-
-            //_traitReferences.Add(value);
-            return null;
-        }
-        #endregion
-
         #region IAmfSerializer implementation
-        override public void ClearReferences()
+        public override void Encode(Stream stream, XmlReader input)
         {
-            base.ClearReferences();
-
-            _stringReferences.Clear();
-            _traitReferences.Clear();
-        }
-
-        public override void WriteValue(object value)
-        {
-            //A null value
-            if (value == null)
-            {
-                PerformWrite(WriteNull);
-                return;
-            }
-
-            var type = value.GetType();
-
-            //A primitive value
-            if (type.IsValueType || type.IsEnum || type == typeof(string))
-            {
-                PerformWrite(() => WritePrimitive(value));
-                return;
-            }
-
-            //A dictionary
-            //if (type == typeof(Dictionary<string,object>))
-            //{
-            //    var untypedObject = DataContractHelper.CreateDynamicObject((Dictionary<string, object>) value);
-            //    PerformWrite(() => Write(untypedObject));
-            //    return;
-            //}
-
-            //An AMF object
-            if (type == typeof(AmfObject))
-            {
-                PerformWrite(() => Write((AmfObject)value));
-                return;
-            }
-
-            //An array
-            if (type.IsArray)
-            {
-                PerformWrite(() => WriteArrayValue(value));
-                return;
-            }
-
-            //An XML document
-            if (type == typeof(XmlDocument))
-            {
-                PerformWrite(() => Write((XmlDocument)value));
-                return;
-            }
-
-            //An externizable object
-            if (value is IExternalizable)
-            {
-                PerformWrite(() => Write((IExternalizable)value));
-                return;
-            }
-
-            throw new SerializationException("Unable to serialize the type: " + type.FullName);
+            var writer = new AmfStreamWriter(stream);
+            var context = CreateDefaultContext();
+            WriteAmfValue(context, input, writer);
         }
         #endregion
 
-        #region Special values
+        #region Helper methods
+        /// <summary>
+        /// Write an AMF0 type marker.
+        /// </summary>
+        private static void WriteTypeMarker(AmfStreamWriter writer, Amf3TypeMarker marker)
+        {
+            writer.Write((byte)marker);
+        }
+
         /// <summary>
         /// Write an 29-bit unsigned integer.
         /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        private void WriteUInt29(int value)
+        private static void WriteUInt29(AmfStreamWriter writer, int value)
         {
             //< 128:
             //0x00000000 - 0x0000007F
             if (value < 0x80)
             {
-                Writer.Write((byte)value);                      //0xxxxxxx
+                writer.Write((byte)value);                      //0xxxxxxx
             }
             //< 16,384:
             //0x00000080 - 0x00003FFF
             else if (value < 0x4000)
             {
-                Writer.Write((byte)(value >> 7 & 0x7F | 0x80));   //1xxxxxxx
-                Writer.Write((byte)(value & 0x7F));               //xxxxxxxx
+                writer.Write((byte)(value >> 7 & 0x7F | 0x80));   //1xxxxxxx
+                writer.Write((byte)(value & 0x7F));               //xxxxxxxx
             }
             //< 2,097,152:
             //0x00004000 - 0x001FFFFF
             else if (value < 0x200000)
             {
-                Writer.Write((byte)(value >> 14 & 0x7F | 0x80));  //1xxxxxxx
-                Writer.Write((byte)(value >> 7 & 0x7F | 0x80));   //1xxxxxxx
-                Writer.Write((byte)(value & 0x7F));               //xxxxxxxx
+                writer.Write((byte)(value >> 14 & 0x7F | 0x80));  //1xxxxxxx
+                writer.Write((byte)(value >> 7 & 0x7F | 0x80));   //1xxxxxxx
+                writer.Write((byte)(value & 0x7F));               //xxxxxxxx
             }
             //0x00200000 - 0x3FFFFFFF
             else if (value < 0x40000000)
             {
-                Writer.Write((byte)(value >> 22 & 0x7F | 0x80));  //1xxxxxxx
-                Writer.Write((byte)(value >> 15 & 0x7F | 0x80));  //1xxxxxxx
-                Writer.Write((byte)(value >> 8 & 0x7F | 0x80));   //1xxxxxxx
-                Writer.Write((byte)(value & 0xFF));               //xxxxxxxx
+                writer.Write((byte)(value >> 22 & 0x7F | 0x80));  //1xxxxxxx
+                writer.Write((byte)(value >> 15 & 0x7F | 0x80));  //1xxxxxxx
+                writer.Write((byte)(value >> 8 & 0x7F | 0x80));   //1xxxxxxx
+                writer.Write((byte)(value & 0xFF));               //xxxxxxxx
             }
             //0x40000000 - 0xFFFFFFFF, out of range
             else
@@ -204,409 +103,407 @@ namespace DotAmf.Encoder
         /// <summary>
         /// Write a reference.
         /// </summary>
-        private void WriteReference(int reference)
+        private static void WriteReference(AmfStreamWriter writer, int reference)
         {
             reference &= UInt29Mask; //Truncate value to UInt29
 
             //The first bit is a flag (representing whether an instance follows)
             //with value 0 to imply that this is not an instance but a reference.
             //The remaining 1 to 28 significant bits are used to encode a reference index.
-            var flag = (reference << 1) | 0x1;
+            var flag = reference << 1;
 
-            WriteUInt29(flag);
+            WriteUInt29(writer, flag);
         }
 
         /// <summary>
-        /// Write a primitive value.
+        /// Write UTF-8 string.
         /// </summary>
-        private void WritePrimitive(object value)
+        private static void WriteUtf8(AmfContext context, AmfStreamWriter writer, string value)
         {
-            var type = value.GetType();
+            if (value == null) value = string.Empty;
 
-            //A boolean value
-            if (type == typeof(bool))
+            //A special case
+            if (value == string.Empty)
             {
-                Write((bool)value);
+                writer.Write((byte)0x01);
                 return;
             }
 
-            //A string
-            if (type == typeof(string))
+            var index = context.StringReferences.IndexOf(value);
+
+            if(index != -1)
             {
-                Write((string)value);
+                WriteReference(writer, index);
                 return;
             }
 
-            //A numeric value
-            bool isInteger;
-            if (DataContractHelper.IsNumericType(type, out isInteger))
-            {
-                var intval = isInteger ? Convert.ToInt64(value) : 0;
+            context.StringReferences.Add(value);
 
-                //Check if the value fits the Int29 span
-                if ((isInteger && intval >= MinInt29Value && intval <= MaxInt29Value) || intval == 0)
-                {
-                    //It should be safe to cast it there
-                    var integer = UInt29Mask & (int)intval; //Truncate the value
+            var decoded = Encoding.UTF8.GetBytes(value);
 
-                    Write(Amf3TypeMarker.Integer);
-                    WriteUInt29(integer);
-                }
-                //Promote the value to a double
-                else
-                {
-                    Write(Amf3TypeMarker.Double);
-                    Writer.Write(Convert.ToDouble(value));
-                }
-
-                return;
-            }
-
-            //A date/time value
-            if (type == typeof(DateTime))
-            {
-                Write((DateTime)value);
-                return;
-            }
-
-            throw new SerializationException("Invalid type: " + type.FullName);
-        }
-
-        /// <summary>
-        /// Write an array value.
-        /// </summary>
-        private void WriteArrayValue(object value)
-        {
-            var type = value.GetType();
-
-            //A byte array
-            if (typeof(byte[]) == type)
-            {
-                Write((byte[])value);
-                return;
-            }
-
-            //A regular array
-            Write(Amf3TypeMarker.Array);
-            var reference = SaveReference(value);
-
-            //Send array by reference
-            if (reference.HasValue)
-            {
-                WriteReference(reference.Value);
-                return;
-            }
-
-            var array = (object[])value;
-
-            //The first bit is a flag with value 1.
-            //The remaining 1 to 28 significant bits 
-            //are used to encode the count of the dense 
-            //portion of the Array.
-            var length = (array.Length << 1) | 0x1;
-            WriteUInt29(length);
-
-            WriteUtf8(string.Empty); //No associative values
-
-            foreach (var item in array)
-                WriteValue(item);
-        }
-
-        /// <summary>
-        /// Write a <c>null</c>.
-        /// </summary>
-        private void WriteNull()
-        {
-            Write(Amf3TypeMarker.Null);
+            WriteUtf8(writer, decoded);
         }
 
         /// <summary>
         /// Write UTF-8 data.
         /// </summary>
-        private void WriteUtf8(string data)
+        private static void WriteUtf8(AmfStreamWriter writer, byte[] data)
         {
-            if (data == null) data = string.Empty;
-
-            //A special case
-            if(data == string.Empty)
-            {
-                Writer.Write((byte)0x01);
-                return;
-            }
-
-            var decoded = Encoding.UTF8.GetBytes(data);
-
             //The first bit is a flag with value 1.
             //The remaining 1 to 28 significant bits are used 
             //to encode the byte-length of the data
-            var flag = (decoded.Length << 1) | 0x1;
+            var flag = (data.Length << 1) | 0x1;
 
-            WriteUInt29(flag);
-            Writer.Write(decoded);
+            WriteUInt29(writer, flag);
+            writer.Write(data);
         }
         #endregion
 
         #region Serialization methods
-        /// <summary>
-        /// Write an AMF3 type marker.
-        /// </summary>
-        public void Write(Amf3TypeMarker marker)
+        protected override void WriteAmfValue(AmfContext context, XmlReader input, AmfStreamWriter writer)
         {
-            Writer.Write((byte)marker);
-        }
+            if (input == null) throw new ArgumentNullException("input");
+            if (context == null) throw new ArgumentNullException("context");
+            if (input.NodeType != XmlNodeType.Element) throw new XmlException(string.Format("Element node expected, {0} found.", input.NodeType));
 
-        /// <summary>
-        /// Write a boolean value.
-        /// </summary>
-        private void Write(bool value)
-        {
-            Write(value ? Amf3TypeMarker.True : Amf3TypeMarker.False);
-        }
-
-        /// <summary>
-        /// Write a <c>DateTime</c>.
-        /// </summary>
-        private void Write(DateTime value)
-        {
-            Write(Amf3TypeMarker.Date);
-            var reference = SaveReference(value);
-
-            //Send date by reference
-            if (reference.HasValue)
+            if (context.AmfVersion != AmfVersion.Amf3)
             {
-                WriteReference(reference.Value);
-                return;
+                context = new AmfContext(AmfVersion.Amf3);
+                writer.Write((byte)Amf0TypeMarker.AvmPlusObject);
             }
 
-            //The first bit is a flag with value 1.
-            //The remaining bits are not used.
-            WriteUInt29(0 | 0x1);
+            #region Primitive values
+            switch (input.Name)
+            {
+                case AmfxContent.Null:
+                    WriteTypeMarker(writer, Amf3TypeMarker.Null);
+                    return;
 
-            Writer.Write(ConvertToTimestamp(value));
+                case AmfxContent.True:
+                    WriteTypeMarker(writer, Amf3TypeMarker.True);
+                    return;
+
+                case AmfxContent.False:
+                    WriteTypeMarker(writer, Amf3TypeMarker.False);
+                    return;
+            }
+            #endregion
+
+            #region Complex values
+            var reader = input.ReadSubtree();
+            reader.MoveToContent();
+
+            switch (reader.Name)
+            {
+                case AmfxContent.Integer:
+                    WriteInteger(writer, reader);
+                    break;
+
+                case AmfxContent.Double:
+                    WriteDouble(writer, reader);
+                    break;
+
+                case AmfxContent.String:
+                    WriteString(context, writer, reader);
+                    break;
+
+                case AmfxContent.Reference:
+                    WriteReference(context, writer, reader);
+                    break;
+
+                case AmfxContent.Date:
+                    WriteDate(context, writer, reader);
+                    break;
+
+                case AmfxContent.Xml:
+                    WriteXml(context, writer, reader);
+                    break;
+
+                case AmfxContent.Array:
+                    WriteArray(context, writer, reader);
+                    break;
+
+                case AmfxContent.Object:
+                    WriteObject(context, writer, reader);
+                    break;
+
+                default:
+                    throw new NotSupportedException("Unexpected AMFX type: " + reader.Name);
+            }
+
+            reader.Close();
+            #endregion
+        }
+
+        #region Value types
+        /// <summary>
+        /// Write an integer.
+        /// </summary>
+        private static void WriteReference(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            var index = Convert.ToInt32(input.GetAttribute(AmfxContent.ReferenceId));
+            var proxy = context.References[index];
+
+            switch(proxy.AmfxType)
+            {
+                case AmfxContent.Date:
+                    WriteTypeMarker(writer, Amf3TypeMarker.Date);
+                    break;
+
+                case AmfxContent.Xml:
+                    WriteTypeMarker(writer, Amf3TypeMarker.Xml);
+                    break;
+
+                case AmfxContent.Array:
+                    WriteTypeMarker(writer, Amf3TypeMarker.Array);
+                    break;
+
+                case AmfxContent.ByteArray:
+                    WriteTypeMarker(writer, Amf3TypeMarker.ByteArray);
+                    break;
+
+                case AmfxContent.Object:
+                    WriteTypeMarker(writer, Amf3TypeMarker.Object);
+                    break;
+
+                default:
+                    throw new InvalidOperationException(string.Format("AMFX type '{0}' cannot be send by reference.", proxy.AmfxType));
+            }
+
+            WriteReference(writer, index);
+        }
+
+        /// <summary>
+        /// Write an integer.
+        /// </summary>
+        private static void WriteInteger(AmfStreamWriter writer, XmlReader input)
+        {
+            var value = Convert.ToInt64(input.ReadString());
+
+            //Check if the value fits the Int29 span
+            if (value >= MinInt29Value && value <= MaxInt29Value)
+            {
+                //It should be safe to cast it there
+                var integer = UInt29Mask & (int)value; //Truncate the value
+
+                WriteTypeMarker(writer, Amf3TypeMarker.Integer);
+                WriteUInt29(writer, integer);
+            }
+            //Promote the value to a double
+            else
+            {
+                WriteTypeMarker(writer, Amf3TypeMarker.Double);
+                writer.Write(Convert.ToDouble(value));
+            }
+        }
+
+        /// <summary>
+        /// Write a double.
+        /// </summary>
+        private static void WriteDouble(AmfStreamWriter writer, XmlReader input)
+        {
+            var value = Convert.ToDouble(input.ReadString());
+
+            WriteTypeMarker(writer, Amf3TypeMarker.Double);
+            writer.Write(value);
         }
 
         /// <summary>
         /// Write a string.
         /// </summary>
-        private void Write(string value)
+        private static void WriteString(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            Write(Amf3TypeMarker.String);
+            WriteTypeMarker(writer, Amf3TypeMarker.String);
 
-            //An empty string is never send by reference
-            if(value == string.Empty)
+            string value;
+
+            if (input.IsEmptyElement)
             {
-                WriteUtf8(value);
-                return;
+                if (input.AttributeCount > 0)
+                {
+                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.StringId));
+                    WriteReference(writer, index);
+                    return;
+                }
+
+                value = string.Empty;
             }
-
-            var reference = SaveReference(value);
-
-            if (reference.HasValue)
-                WriteReference(reference.Value);
             else
-                WriteUtf8(value);
+                value = input.ReadString();
+
+            WriteUtf8(context, writer, value);
         }
 
         /// <summary>
-        /// Write a byte array.
+        /// Write a date.
         /// </summary>
-        private void Write(byte[] bytes)
+        private static void WriteDate(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            Write(Amf3TypeMarker.ByteArray);
-            var reference = SaveReference(bytes);
+            context.References.Add(new AmfReference(AmfxContent.Date));
+            WriteTypeMarker(writer, Amf3TypeMarker.Date);
 
-            //Send byte array by reference
-            if (reference.HasValue)
-            {
-                WriteReference(reference.Value);
-                return;
-            }
+            var milliseconds = Convert.ToDouble(input.ReadString());
 
             //The first bit is a flag with value 1.
-            //The remaining 1 to 28 significant bits are used 
-            //to encode the byte-length of the data
-            var flag = (bytes.Length << 1) | 0x1;
-            WriteUInt29(flag);
+            //The remaining bits are not used.
+            WriteUInt29(writer, 0 | 0x1);
 
-            Writer.Write(bytes);
+            writer.Write(milliseconds);
         }
 
         /// <summary>
         /// Write an XML.
         /// </summary>
-        private void Write(XmlDocument value)
+        private static void WriteXml(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            Write(Amf3TypeMarker.Xml);
-            var reference = SaveReference(value);
+            context.References.Add(new AmfReference(AmfxContent.Xml));
+            WriteTypeMarker(writer, Amf3TypeMarker.Xml);
 
-            //Send XML by reference
-            if (reference.HasValue)
-            {
-                WriteReference(reference.Value);
-                return;
-            }
+            var encoded = input.ReadString();
+            var decoded = Convert.FromBase64String(encoded);
 
-            string xmlString;
-
-            using (var stringWriter = new StringWriter())
-            using (var xmlTextWriter = XmlWriter.Create(stringWriter))
-            {
-                value.WriteTo(xmlTextWriter);
-                xmlString = stringWriter.GetStringBuilder().ToString();
-            }
-
-            WriteUtf8(xmlString);
-        }
-
-        /// <summary>
-        /// Write an AMF+ object.
-        /// </summary>
-        private void Write(AmfObject obj)
-        {
-            Write(Amf3TypeMarker.Object);
-            var objreference = SaveReference(obj);
-
-            //Send object by reference
-            if (objreference.HasValue)
-            {
-                WriteReference(objreference.Value);
-                return;
-            }
-
-            var traitsreference = SaveReference(obj.Traits);
-
-            //Send traits by reference
-            if (traitsreference.HasValue)
-            {
-                var flag = traitsreference.Value & UInt29Mask; //Truncate value to UInt29
-
-                //The first bit is a flag with value 1.
-                //The second bit is a flag (representing whether a trait
-                //reference follows) with value 0 to imply that this objects
-                //traits are being sent by reference. The remaining 1 to 27 
-                //significant bits are used to encode a trait reference index.
-                flag = (flag << 2) | 0x2;
-                WriteUInt29(flag);
-            }
-            //Send traits by value
-            else
-            {
-                //The first bit is a flag with value 1. 
-                //The second bit is a flag with value 1.
-                //The third bit is a flag with value 0. 
-                var flag = 0x3; //00000011
-
-                if (obj.Traits.IsExternalizable) flag |= 0x4; //00000111
-
-                //The fourth bit is a flag specifying whether the type is dynamic.
-                //A value of 0 implies not dynamic, a value of 1 implies dynamic.
-                if (obj.Traits.IsDynamic) flag |= 0x8; //00001011
-
-                //The remaining 1 to 25 significant bits are used to encode the number 
-                //of sealed traits member names that follow after the class name.
-                var count = obj.Traits.ClassMembers.Count();
-                flag |= count << 4;
-
-                WriteUInt29(flag);
-
-                WriteUtf8(obj.Traits.TypeName);
-
-                //Write member names
-                foreach (var member in obj.Traits.ClassMembers)
-                    WriteUtf8(member);
-            }
-
-            //Write member values
-            foreach (var member in obj.Traits.ClassMembers)
-                WriteValue(obj[member]);
-
-            //Dynamic types may have a set of name value pairs
-            //for dynamic members after the sealed member section.
-            if (obj.Traits.IsDynamic)
-            {
-                var dynamicMembers = (from pair in obj select pair.Key)
-                                     .Except(obj.Traits.ClassMembers);
-
-                foreach (var member in dynamicMembers)
-                {
-                    WriteUtf8(member);
-                    WriteValue(obj[member]);
-                }
-
-                WriteUtf8(string.Empty);
-            }
-        }
-
-        /// <summary>
-        /// Write an externizable object.
-        /// </summary>
-        private void Write(IExternalizable obj)
-        {
-            Write(Amf3TypeMarker.Object);
-
-            //The first bit is a flag with value 1.
-            //The second bit is a flag with value 1.
-            //The third bit is a flag with value 1.
-            //The remaining 1 to 26 significant bits are not significant
-            //(the traits member count would always be 0).
-            WriteUInt29(0x7); //00000111
-            WriteUtf8(obj.TypeName);
-
-            byte[] data;
-
-            using (var stream = new MemoryStream())
-            {
-                obj.WriteExternal(stream);
-                data = stream.ToArray();
-            }
-
-            Writer.Write(data);
+            WriteUtf8(writer, decoded);
         }
         #endregion
 
-        #region Helper methods
+        #region Complex types
         /// <summary>
-        /// Perform an AMF+ write action.
+        /// Write an array.
         /// </summary>
-        private void PerformWrite(Action writeAction)
+        private void WriteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            //Perform a context switch
-            var rollback = SwitchAmfVersion();
+            context.References.Add(new AmfReference(AmfxContent.Array));
+            WriteTypeMarker(writer, Amf3TypeMarker.Array);
 
-            try
+            var length = Convert.ToInt32(input.GetAttribute(AmfxContent.ArrayLength));
+
+            //The first bit is a flag with value 1.
+            //The remaining 1 to 28 significant bits 
+            //are used to encode the count of the dense 
+            //portion of the Array.
+            var size = (length << 1) | 0x1;
+            WriteUInt29(writer, size);
+
+            WriteUtf8(context, writer, string.Empty); //No associative values
+
+            if (length == 0) return;
+
+            input.MoveToContent();
+
+            while (input.Read())
             {
-                writeAction.Invoke();
-            }
-            finally
-            {
-                rollback.Invoke(); //Switch context back
+                if (input.NodeType != XmlNodeType.Element)
+                    continue;
+
+                for (var i = 0; i < length; i++)
+                {
+                    var itemreader = input.ReadSubtree();
+                    itemreader.MoveToContent();
+                    WriteAmfValue(context, itemreader, writer);
+                    itemreader.Close();
+                    input.Read();
+                }
             }
         }
 
         /// <summary>
-        /// Mock context rollback action.
+        /// Write an object.
         /// </summary>
-        private readonly Action _mockRollbackAction = delegate { };
-
-        /// <summary>
-        /// Context rollback action.
-        /// </summary>
-        private readonly Action _rollbackAction;
-
-        /// <summary>
-        /// Switch to new AMF+ version.
-        /// </summary>
-        /// <returns>An action that can be executed 
-        /// to rollback the context to its previous state.</returns>
-        private Action SwitchAmfVersion()
+        private void WriteObject(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            if (CurrentAmfVersion == AmfVersion.Amf3)
-                return _mockRollbackAction;
+            context.References.Add(new AmfReference(AmfxContent.Object));
+            WriteTypeMarker(writer, Amf3TypeMarker.Object);
 
-            Write(Amf0TypeMarker.AvmPlusObject);
-            CurrentAmfVersion = AmfVersion.Amf3;
-            return _rollbackAction;
+            AmfTypeTraits traits = null;
+            var typeName = string.Empty;
+
+            if (input.HasAttributes)
+                typeName = input.GetAttribute(AmfxContent.ObjectType);
+
+            #region Write traits
+            while (input.Read())
+            {
+                if (input.NodeType != XmlNodeType.Element && input.Name != AmfxContent.Traits) continue;
+
+                //Send traits by value
+                if (!input.IsEmptyElement)
+                {
+                    traits = new AmfTypeTraits { TypeName = typeName };
+                    context.TraitsReferences.Add(traits);
+
+                    var traitsReader = input.ReadSubtree();
+                    traitsReader.MoveToContent();
+                    traitsReader.ReadStartElement();
+
+                    var members = new List<string>();
+
+                    while (input.NodeType != XmlNodeType.EndElement)
+                        members.Add(traitsReader.ReadElementContentAsString());
+
+                    traits.ClassMembers = members.ToArray();
+                    traitsReader.Close();
+
+                    //The first bit is a flag with value 1. 
+                    //The second bit is a flag with value 1.
+                    //The third bit is a flag with value 0. 
+                    var flag = 0x3; //00000011
+
+                    if (traits.IsExternalizable) flag |= 0x4; //00000111
+
+                    //The fourth bit is a flag specifying whether the type is dynamic.
+                    //A value of 0 implies not dynamic, a value of 1 implies dynamic.
+                    if (traits.IsDynamic) flag |= 0x8; //00001011
+
+                    //The remaining 1 to 25 significant bits are used to encode the number 
+                    //of sealed traits member names that follow after the class name.
+                    var count = traits.ClassMembers.Count();
+                    flag |= count << 4;
+
+                    WriteUInt29(writer, flag);
+
+                    WriteUtf8(context, writer, traits.TypeName);
+
+                    //Write member names
+                    foreach (var member in traits.ClassMembers)
+                        WriteUtf8(context, writer, member);
+                }
+                //Send traits by reference
+                else
+                {
+                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId));
+                    traits = context.TraitsReferences[index];
+
+                    var flag = index & UInt29Mask; //Truncate value to UInt29
+
+                    //The first bit is a flag with value 1.
+                    //The second bit is a flag (representing whether a trait
+                    //reference follows) with value 0 to imply that this objects
+                    //traits are being sent by reference. The remaining 1 to 27 
+                    //significant bits are used to encode a trait reference index.
+                    flag = (flag << 2) | 0x1;
+                    WriteUInt29(writer, flag);
+                }
+
+                break;
+            }
+
+            if (traits == null) throw new SerializationException("Object traits not found.");
+            #endregion
+
+            #region Write members
+            while (input.Read())
+            {
+                if (input.NodeType != XmlNodeType.Element) continue;
+                var memberReader = input.ReadSubtree();
+                memberReader.MoveToContent();
+
+                WriteAmfValue(context, memberReader, writer);
+
+                memberReader.Close();
+            }
+            #endregion
         }
+        #endregion
         #endregion
     }
 }

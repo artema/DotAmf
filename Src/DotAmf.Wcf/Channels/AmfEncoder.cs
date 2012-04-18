@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.ServiceModel.Channels;
-using System.Text;
 using System.Xml;
 using DotAmf.Data;
+using DotAmf.IO;
 using DotAmf.Serialization;
 
 namespace DotAmf.ServiceModel.Channels
@@ -29,8 +29,7 @@ namespace DotAmf.ServiceModel.Channels
                 AmfEncoderFactory.DefaultAmfCharSet
             );
 
-            _encoder = new DataContractAmfSerializer(typeof(AmfPacket), encodingOptions);
-            _decoder = new DataContractAmfSerializer(typeof(AmfPacket), encodingOptions);
+            _serializer = new DataContractAmfSerializer(typeof(AmfPacket), encodingOptions);
         }
         #endregion
 
@@ -48,14 +47,9 @@ namespace DotAmf.ServiceModel.Channels
         private readonly string _contentType;
 
         /// <summary>
-        /// AMF packet encoder.
+        /// AMF packet serializer.
         /// </summary>
-        private readonly DataContractAmfSerializer _encoder;
-
-        /// <summary>
-        /// AMF packet decoder.
-        /// </summary>
-        private readonly DataContractAmfSerializer _decoder;
+        private readonly DataContractAmfSerializer _serializer;
         #endregion
 
         #region Properties
@@ -163,13 +157,14 @@ namespace DotAmf.ServiceModel.Channels
 
             try
             {
-                var output = new XmlTextWriter(ms, Encoding.UTF8);
-                _decoder.ReadObject(stream, output);
+                //Decode binary AMF packet into AMFX data
+                var output = AmfxWriter.Create(ms);
+                _serializer.ReadObject(stream, output);
                 output.Flush();
                 ms.Seek(0, SeekOrigin.Begin);
-
-                var reader = new XmlTextReader(ms);
-                return Message.CreateMessage(MessageVersion.None, null, reader);
+                
+                //Write AMFX message
+                return Message.CreateMessage(MessageVersion.None, null, AmfxReader.Create(ms, true));
             }
             catch
             {
@@ -186,33 +181,24 @@ namespace DotAmf.ServiceModel.Channels
         /// <param name="stream">The Stream object to which the message is written.</param>
         public override void WriteMessage(Message message, Stream stream)
         {
-            var messageBase = message as AmfMessageBase;
-            if (messageBase == null) throw new ArgumentException(Errors.AmfEncoder_WriteMessage_InvalidMessageType, "message");
-
-            var packet = new AmfPacket();
-
-            foreach (var header in messageBase.AmfHeaders)
-                packet.Headers[header.Key] = header.Value;
-
-            //Generic AMF message
-            if (message is AmfGenericMessage)
+            try
             {
-                var msg = (AmfGenericMessage)message;
-                packet.Messages.Add(msg.AmfMessage);
+                using(var ms = new MemoryStream())
+                {
+                    //Read AMFX message
+                    var writer = XmlDictionaryWriter.CreateDictionaryWriter(AmfxWriter.Create(ms));
+                    message.WriteBodyContents(writer);
+                    writer.Flush();
+                    ms.Seek(0, SeekOrigin.Begin);
+
+                    //Encode binary AMF packet from AMFX data
+                    _serializer.WriteObject(stream, AmfxReader.Create(ms));
+                }
             }
-            //Batch AMF message
-            else if (message is AmfBatchMessage)
+            finally
             {
-                var msg = (AmfBatchMessage)message;
-
-                foreach (var amfMessage in msg.AmfMessages)
-                    packet.Messages.Add(amfMessage);
+                message.Close();
             }
-
-            if (packet.Messages.Count == 0)
-                throw new ArgumentException(Errors.AmfEncoder_WriteMessage_EmptyAmfMessage, "message");
-
-            _encoder.WriteObject(stream, packet);
         }
         #endregion
     }

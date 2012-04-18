@@ -51,9 +51,8 @@ namespace DotAmf.Decoder
                 var decoder = CreateDecoder(version, _options);
 
                 output.WriteStartDocument();
-                output.WriteStartElement(AmfxContent.AmfxRoot);
+                output.WriteStartElement(AmfxContent.AmfxDocument, AmfxContent.Namespace);
                 output.WriteAttributeString(AmfxContent.VersionAttribute, version.ToAmfxName());
-                output.WriteAttributeString("xmlns", AmfxContent.Namespace);
                 output.Flush();
 
                 //Read headers

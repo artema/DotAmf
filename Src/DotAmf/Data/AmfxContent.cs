@@ -13,7 +13,7 @@
         /// <summary>
         /// Root AMFX tag.
         /// </summary>
-        public const string AmfxRoot = "amfx";
+        public const string AmfxDocument = "amfx";
 
         /// <summary>
         /// AMFX version attribute.

@@ -1,19 +1,22 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Xml;
 using DotAmf.Data;
+using DotAmf.IO;
 
 namespace DotAmf.Encoder
 {
     /// <summary>
     /// AMF0 encoder.
     /// </summary>
-    internal class Amf0Encoder : AbstractAmfEncoder
+    class Amf0Encoder : AbstractAmfEncoder
     {
         #region .ctor
-        public Amf0Encoder(BinaryWriter writer, AmfEncodingOptions options)
-            : base(writer, options)
+        public Amf0Encoder(AmfEncodingOptions encodingOptions)
+            : base(encodingOptions)
         {
         }
         #endregion
@@ -23,163 +26,402 @@ namespace DotAmf.Encoder
         /// Maximum number of byte a short string can contain.
         /// </summary>
         private const uint ShortStringLimit = 65535;
-
-        /// <summary>
-        /// <c>Null</c> value.
-        /// </summary>
-        private const string Null = "null";
         #endregion
 
         #region IAmfSerializer implementation
-        public override void WriteValue(object value)
+        public override void Encode(Stream stream, XmlReader input)
         {
-            //A null value
-            if (value == null)
-            {
-                WriteNull();
-                return;
-            }
-
-            var type = value.GetType();
-
-            //A primitive value
-            if (type.IsValueType || type.IsEnum || type == typeof(string))
-            {
-                WritePrimitive(value);
-                return;
-            }
-
-            //ToDo: write object
-
-            throw new SerializationException("Invalid type: " + type.FullName);
+            var writer = new AmfStreamWriter(stream);
+            var context = CreateDefaultContext();
+            WriteAmfValue(context, input, writer);
         }
 
-        public override void WritePacketHeader(AmfHeader header)
+        public override void WritePacketHeader(Stream stream, AmfHeaderDescriptor descriptor)
         {
-            WriteUtf8(header.Name);
-            Writer.Write((byte)(header.MustUnderstand ? 0 : 1));
-            Writer.Write(-1); //Header's length
+            var writer = new AmfStreamWriter(stream);
 
-            WriteValue(header.Data);
+            WriteUtf8(writer, descriptor.Name);
+            writer.Write((byte)(descriptor.MustUnderstand ? 1 : 0));
+            writer.Write(-1);
         }
 
-        public override void WritePacketBody(AmfMessage message)
+        public override void WritePacketBody(Stream stream, AmfMessageDescriptor descriptor)
         {
-            WriteUtf8(message.Target ?? Null);
-            WriteUtf8(message.Response ?? Null);
-            Writer.Write(-1); //Message's length
+            var writer = new AmfStreamWriter(stream);
 
-            WriteValue(message.Data);
-        }
-        #endregion
-
-        #region Special values
-        /// <summary>
-        /// Write a <c>null</c>.
-        /// </summary>
-        private void WriteNull()
-        {
-            Write(Amf0TypeMarker.Null);
-        }
-
-        /// <summary>
-        /// Write a primitive value.
-        /// </summary>
-        private void WritePrimitive(object value)
-        {
-            var type = value.GetType();
-
-            //A boolean value
-            if (type == typeof(bool))
-            {
-                Write((bool)value);
-                return;
-            }
-
-            //A string
-            if (type == typeof(string))
-            {
-                Write((string)value);
-                return;
-            }
-
-            //A date/time value
-            if (type == typeof(DateTime))
-            {
-                Write((DateTime)value);
-                return;
-            }
-
-            throw new SerializationException("Invalid type: " + type.FullName);
+            WriteUtf8(writer, descriptor.Target);
+            WriteUtf8(writer, descriptor.Response);
+            writer.Write(-1);
         }
         #endregion
 
         #region Serialization methods
+        protected override void WriteAmfValue(AmfContext context, XmlReader input, AmfStreamWriter writer)
+        {
+            if (context.AmfVersion != AmfVersion.Amf0)
+                throw new InvalidOperationException(string.Format(Errors.Amf0Decoder_ReadAmfValue_AmfVersionNotSupported, context.AmfVersion));
+
+            if (input == null) throw new ArgumentNullException("input");
+            if (context == null) throw new ArgumentNullException("context");
+            if (input.NodeType != XmlNodeType.Element) throw new XmlException(string.Format("Element node expected, {0} found.", input.NodeType));
+
+            #region Primitive values
+            switch (input.Name)
+            {
+                case AmfxContent.Null:
+                    WriteNull(writer);
+                    return;
+
+                case AmfxContent.True:
+                    WriteBoolean(writer, true);
+                    return;
+
+                case AmfxContent.False:
+                    WriteBoolean(writer, false);
+                    return;
+            }
+            #endregion
+
+            #region Complex values
+            var reader = input.ReadSubtree();
+            reader.MoveToContent();
+
+            switch (reader.Name)
+            {
+                case AmfxContent.Integer:
+                case AmfxContent.Double:
+                    WriteNumber(writer, reader);
+                    break;
+
+                case AmfxContent.String:
+                    WriteString(context, writer, reader);
+                    break;
+
+                case AmfxContent.Reference:
+                    WriteReference(context, writer, reader);
+                    break;
+
+                case AmfxContent.Date:
+                    WriteDate(context, writer, reader);
+                    break;
+
+                case AmfxContent.Xml:
+                    WriteXml(context, writer, reader);
+                    break;
+
+                case AmfxContent.Array:
+                    WriteArray(context, writer, reader);
+                    break;
+
+                case AmfxContent.Object:
+                    WriteObject(context, writer, reader);
+                    break;
+
+                default:
+                    throw new NotSupportedException("Unexpected AMFX type: " + reader.Name);
+            }
+
+            reader.Close();
+            #endregion
+        }
+
+        #region Primitive values
         /// <summary>
         /// Write an AMF0 type marker.
         /// </summary>
-        public void Write(Amf0TypeMarker marker)
+        private static void WriteTypeMarker(AmfStreamWriter writer, Amf0TypeMarker marker)
         {
-            Writer.Write((byte)marker);
+            writer.Write((byte)marker);
+        }
+
+        /// <summary>
+        /// Write a <c>null</c>.
+        /// </summary>
+        private static void WriteNull(AmfStreamWriter writer)
+        {
+            WriteTypeMarker(writer, Amf0TypeMarker.Null);
         }
 
         /// <summary>
         /// Write a boolean value.
         /// </summary>
-        private void Write(bool value)
+        private static void WriteBoolean(AmfStreamWriter writer, bool value)
         {
-            Writer.Write(value);
+            writer.Write(value);
         }
+        #endregion
 
+        #region Value types
         /// <summary>
-        /// Write a <c>DateTime</c>.
+        /// Write a number.
         /// </summary>
-        private void Write(DateTime value)
+        private static void WriteNumber(AmfStreamWriter writer, XmlReader input)
         {
-            Write(Amf0TypeMarker.Date);
+            WriteTypeMarker(writer, Amf0TypeMarker.Number);
 
-            Writer.Write(ConvertToTimestamp(value));
-
-            //Value indicates a timezone, but it should not be used
-            Writer.Write((short)0);
+            var value = Convert.ToDouble(input.ReadString());
+            writer.Write(value);
         }
 
         /// <summary>
         /// Write a string.
         /// </summary>
-        private void Write(string value)
+        private static void WriteString(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            if (value == null) value = string.Empty;
+            string value;
 
-            var data = Encoding.UTF8.GetBytes(value);
+            //Since strings are sent by reference only in AMF+,
+            //we need to keep tracking string references in AMF0 too
+            //in order to decode AMFX data correctly
 
-            if(data.Length < ShortStringLimit)
+            //Empty string or string is sent by reference
+            if (input.IsEmptyElement)
             {
-                Write(Amf0TypeMarker.String);
-                Writer.Write((ushort)data.Length);
+                if (input.AttributeCount > 0)
+                {
+                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.StringId));
+                    value = context.StringReferences[index];
+                }
+                else
+                {
+                    value = string.Empty;
+                    context.StringReferences.Add(value);
+                }
             }
+            //String value
             else
             {
-                Write(Amf0TypeMarker.LongString);
-                Writer.Write((uint)data.Length);
+                value = input.ReadString();
+                context.StringReferences.Add(value);
             }
 
-            Writer.Write(data);
+            WriteString(writer, value);
         }
 
         /// <summary>
         /// Write a string.
         /// </summary>
-        private void WriteUtf8(string value)
+        private static void WriteString(AmfStreamWriter writer, string value)
         {
-            if (value == null) value = string.Empty;
-
             var data = Encoding.UTF8.GetBytes(value);
 
-            Writer.Write((ushort)data.Length);
-            Writer.Write(data);
+            WriteTypeMarker(writer, data.Length < ShortStringLimit 
+                ? Amf0TypeMarker.String 
+                : Amf0TypeMarker.LongString);
+
+            WriteUtf8(writer, data);
         }
 
+        /// <summary>
+        /// Write UTF8 string.
+        /// </summary>
+        private static void WriteUtf8(AmfStreamWriter writer, string value)
+        {
+            var data = Encoding.UTF8.GetBytes(value);
+            WriteUtf8(writer, data);
+        }
+
+        /// <summary>
+        /// Write UTF8 data.
+        /// </summary>
+        private static void WriteUtf8(AmfStreamWriter writer, byte[] data)
+        {
+            if (data.Length < ShortStringLimit)
+                writer.Write((ushort)data.Length);
+            else
+                writer.Write((uint)data.Length);
+
+            writer.Write(data);
+        }
+
+        /// <summary>
+        /// Write a reference value.
+        /// </summary>
+        private static void WriteReference(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            var index = Convert.ToInt32(input.GetAttribute(AmfxContent.ReferenceId));
+            var proxy = context.References[index];
+
+            switch(proxy.AmfxType)
+            {
+                case AmfxContent.Array:
+                case AmfxContent.Object:
+                    WriteTypeMarker(writer, Amf0TypeMarker.Reference);
+                    writer.Write((ushort)index);
+                    break;
+
+                case AmfxContent.Date:
+                    WriteDate(writer, (double)proxy.Reference);
+                    break;
+
+                case AmfxContent.Xml:
+                    WriteXml(writer, (byte[])proxy.Reference);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Write a date.
+        /// </summary>
+        private static void WriteDate(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            var value = Convert.ToDouble(input.ReadString());
+            context.References.Add(new AmfReference(value, AmfxContent.Date));
+
+            WriteDate(writer, value);
+        }
+
+        /// <summary>
+        /// Write a date.
+        /// </summary>
+        private static void WriteDate(AmfStreamWriter writer, double value)
+        {
+            WriteTypeMarker(writer, Amf0TypeMarker.Date);
+            writer.Write(value);
+            writer.Write((short)0); //Timezone (not used)
+        }
+
+        /// <summary>
+        /// Write an XML.
+        /// </summary>
+        private static void WriteXml(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            var value = input.ReadString();
+            var data = Encoding.UTF8.GetBytes(value);
+            context.References.Add(new AmfReference(data, AmfxContent.Xml));
+
+            WriteXml(writer, data);
+        }
+
+        /// <summary>
+        /// Write an XML.
+        /// </summary>
+        private static void WriteXml(AmfStreamWriter writer, byte[] value)
+        {
+            WriteTypeMarker(writer, Amf0TypeMarker.XmlDocument);
+            writer.Write((uint)value.Length);
+            writer.Write(value);
+        }
+        #endregion
+
+        #region Complex types
+        /// <summary>
+        /// Write an array.
+        /// </summary>
+        private void WriteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            context.References.Add(new AmfReference(null, AmfxContent.Array));
+
+            var length = Convert.ToUInt32(input.GetAttribute(AmfxContent.ArrayLength));
+            writer.Write(length);
+
+            if (length == 0) return;
+
+            input.MoveToContent();
+
+            while (input.Read())
+            {
+                if (input.NodeType != XmlNodeType.Element)
+                    continue;
+
+                for (var i = 0; i < length; i++)
+                {
+                    var itemreader = input.ReadSubtree();
+                    itemreader.MoveToContent();
+                    WriteAmfValue(context, itemreader, writer);
+                    itemreader.Close();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Write an object.
+        /// </summary>
+        private void WriteObject(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            context.References.Add(new AmfReference(null, AmfxContent.Object));
+
+            WriteTypeMarker(writer, Amf0TypeMarker.Object);
+
+            AmfTypeTraits traits = null;
+            var typeName = string.Empty;
+
+            if (input.HasAttributes)
+                typeName = input.GetAttribute(AmfxContent.ObjectType);
+
+            #region Read traits
+            while (input.Read())
+            {
+                if (input.NodeType != XmlNodeType.Element && input.Name != AmfxContent.Traits) continue;
+
+                if (!input.IsEmptyElement)
+                {
+                    traits = new AmfTypeTraits { TypeName = typeName };
+                    context.TraitsReferences.Add(traits);
+
+                    var traitsReader = input.ReadSubtree();
+                    traitsReader.MoveToContent();
+                    traitsReader.ReadStartElement();
+
+                    var members = new List<string>();
+
+                    while (input.NodeType != XmlNodeType.EndElement)
+                        members.Add(traitsReader.ReadElementContentAsString());
+
+                    traits.ClassMembers = members.ToArray();
+                    traitsReader.Close();
+                }
+                else
+                {
+                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId));
+                    traits = context.TraitsReferences[index];
+                }
+
+                break;
+            }
+
+            if (traits == null) throw new SerializationException("Object traits not found.");
+            #endregion
+
+            #region Type name
+            //Untyped object
+            if(string.IsNullOrEmpty(traits.TypeName))
+            {
+                WriteTypeMarker(writer, Amf0TypeMarker.Object);
+            }
+            //Strongly-typed object
+            else
+            {
+                WriteTypeMarker(writer, Amf0TypeMarker.TypedObject);
+                var typeNameData = Encoding.UTF8.GetBytes(traits.TypeName);
+                writer.Write((ushort)typeNameData.Length);
+                writer.Write(typeNameData);
+            }
+            #endregion
+
+            #region Write members
+            var i = 0;
+
+            while (input.Read())
+            {
+                if (input.NodeType != XmlNodeType.Element) continue;
+
+                var memberName = traits.ClassMembers[i];
+                var memberReader = input.ReadSubtree();
+                memberReader.MoveToContent();
+
+                WriteUtf8(writer, memberName);
+                WriteAmfValue(context, memberReader, writer);
+
+                memberReader.Close();
+                i++;
+            }
+            #endregion
+
+            WriteUtf8(writer, string.Empty);
+            WriteTypeMarker(writer, Amf0TypeMarker.ObjectEnd);
+        }
+        #endregion
         #endregion
     }
 }

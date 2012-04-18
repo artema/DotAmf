@@ -1,4 +1,7 @@
-﻿using System.Runtime.Serialization;
+﻿using System;
+using System.IO;
+using System.Runtime.Serialization;
+using System.Xml;
 using DotAmf.Data;
 
 namespace DotAmf.Encoder
@@ -9,22 +12,23 @@ namespace DotAmf.Encoder
     public interface IAmfEncoder
     {
         /// <summary>
-        /// Write AMF packet headers.
+        /// Encode data from AMFX format.
         /// </summary>
-        /// <param name="header">Header data.</param>
-        void WritePacketHeader(AmfHeader header);
-
-        /// <summary>
-        /// Write AMF packet body.
-        /// </summary>
-        /// <param name="message">Message body.</param>
-        void WritePacketBody(AmfMessage message);
-
-        /// <summary>
-        /// Write a value.
-        /// </summary>
-        /// <param name="value">Value to write.</param>
+        /// <param name="stream">AMF stream.</param>
+        /// <param name="input">AMFX input reader.</param>
+        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
         /// <exception cref="SerializationException">Error during serialization.</exception>
-        void WriteValue(object value);
+        /// <exception cref="InvalidOperationException">Invalid AMF context.</exception>
+        void Encode(Stream stream, XmlReader input);
+
+        /// <summary>
+        /// Write an AMF packet header descriptor.
+        /// </summary>
+        void WritePacketHeader(Stream stream, AmfHeaderDescriptor descriptor);
+
+        /// <summary>
+        /// Write AMF packet body descriptor.
+        /// </summary>
+        void WritePacketBody(Stream stream, AmfMessageDescriptor descriptor);
     }
 }

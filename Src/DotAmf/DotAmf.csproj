@@ -41,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Data\Amf0TypeMarker.cs" />
+    <Compile Include="Data\AmfContext.cs" />
     <Compile Include="Data\AmfEncodingOptions.cs" />
     <Compile Include="Data\AmfTypes.cs" />
     <Compile Include="Data\Amf3TypeMarker.cs" />
@@ -56,6 +57,8 @@
     </Compile>
     <Compile Include="IO\AmfStreamWriter.cs" />
     <Compile Include="IO\AmfStreamReader.cs" />
+    <Compile Include="IO\AmfxReader.cs" />
+    <Compile Include="IO\AmfxWriter.cs" />
     <Compile Include="IO\ByteConverter.cs" />
     <Compile Include="Encoder\Amf0Encoder.cs" />
     <Compile Include="Decoder\AbstractAmfDecoder.cs" />

@@ -1,9 +1,10 @@
 ﻿using System;
+using System.IO;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.ServiceModel.Dispatcher;
 using DotAmf.Data;
-using DotAmf.Serialization;
+using DotAmf.IO;
 using DotAmf.ServiceModel.Channels;
 
 namespace DotAmf.ServiceModel.Dispatcher
@@ -35,8 +36,35 @@ namespace DotAmf.ServiceModel.Dispatcher
 
         public void BeforeSendReply(ref Message reply, object correlationState)
         {
-            //if(reply is AmfGenericMessage)
-            //    DereferenceContracts(_context.SerializationContext, ref reply);
+            var message = reply as AmfGenericMessage;
+
+            if(message == null)
+                throw new InvalidOperationException("AmfGenericMessage is expected.");
+
+            var packet = new AmfPacket();
+
+            foreach (var header in message.AmfHeaders)
+                packet.Headers[header.Key] = header.Value;
+
+            packet.Messages.Add(message.AmfMessage);
+
+            var ms = new MemoryStream();
+
+            try
+            {
+                //Serialize packet into AMFX data
+                var output = AmfxWriter.Create(ms);
+                _context.AmfSerializer.WriteObject(output, packet);
+                output.Flush();
+                ms.Seek(0, SeekOrigin.Begin);
+
+                reply = Message.CreateMessage(MessageVersion.None, null, AmfxReader.Create(ms, true));
+            }
+            catch
+            {
+                ms.Dispose();
+                throw;
+            }
         }
         #endregion
     }

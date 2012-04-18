@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,12 +8,17 @@ using System.Text;
 using System.Xml;
 using DotAmf.Data;
 using DotAmf.Decoder;
+using DotAmf.Encoder;
+using DotAmf.IO;
 
 namespace DotAmf.Serialization
 {
     /// <summary>
     /// Serializes objects to the Action Message Format (AMF) and deserializes AMF data to objects.
     /// </summary>
+    /// <remarks>
+    /// This class is thread-safe and is expensive to instantiate.
+    /// </remarks>
     sealed public class DataContractAmfSerializer : XmlObjectSerializer
     {
         #region .ctor
@@ -105,12 +111,9 @@ namespace DotAmf.Serialization
 
             using (var buffer = new MemoryStream())
             {
-                var amfxwriter = new XmlTextWriter(buffer, Encoding.UTF8);
-
-                ReadObject(stream, amfxwriter);
+                ReadObject(stream, AmfxWriter.Create(buffer));
 
                 buffer.Position = 0;
-
                 return ReadObject(new XmlTextReader(buffer));
             }
         }
@@ -126,7 +129,7 @@ namespace DotAmf.Serialization
         public void ReadObject(Stream stream, XmlWriter output)
         {
             //Decode AMF packet
-            if (_type.Value.AmfxType == AmfxContent.AmfxRoot)
+            if (_type.Value.AmfxType == AmfxContent.AmfxDocument)
             {
                 var decoder = new AmfPacketDecoder(_encodingOptions);
                 decoder.Decode(stream, output);
@@ -176,9 +179,9 @@ namespace DotAmf.Serialization
         {
             if (reader == null) throw new ArgumentNullException("reader");
 
-            var context = new SerializationContext { KnownTypes = _knownTypes };
+            var context = new SerializationContext(_encodingOptions.AmfVersion) { KnownTypes = _knownTypes };
 
-            return _type.Value.AmfxType == AmfxContent.AmfxRoot
+            return _type.Value.AmfxType == AmfxContent.AmfxDocument
                 ? DeserializePacket(reader, context) //Special case
                 : Deserialize(reader, context);
         }
@@ -195,6 +198,7 @@ namespace DotAmf.Serialization
         public override object ReadObject(XmlReader reader, bool verifyObjectName)
         {
             if (reader == null) throw new ArgumentNullException("reader");
+
             return verifyObjectName && !IsStartObject(reader)
                 ? null
                 : ReadObject(reader);
@@ -226,12 +230,48 @@ namespace DotAmf.Serialization
         #endregion
 
         #region Write methods
+        /// <summary>
+        /// Serializes a specified object to Action Message Format (AMF) data and writes the resulting AMF to a stream.
+        /// </summary>
+        /// <param name="stream">The Stream that is written to.</param>
+        /// <param name="graph">The object that contains the data to write to the stream.</param>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
+        /// <exception cref="InvalidDataException">Error during encoding.</exception>
         public override void WriteObject(Stream stream, object graph)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (!stream.CanWrite) throw new ArgumentException(Errors.DataContractAmfSerializer_WriteObject_InvalidStream, "stream");
 
-            throw new NotSupportedException();
+            using (var buffer = new MemoryStream())
+            {
+                WriteObject(AmfxWriter.Create(buffer), graph);
+
+                buffer.Position = 0;
+                WriteObject(stream, AmfxReader.Create(buffer));
+            }
+        }
+
+        /// <summary>
+        /// Reads a specified Action Message Format in XML (AMFX) data and writes the resulting AMF data to a stream.
+        /// </summary>
+        /// <param name="stream">The Stream to be written.</param>
+        /// <param name="input">AMFX reader.</param>
+        /// <exception cref="SerializationException">Unable to resolve data contracts.</exception>
+        /// <exception cref="InvalidDataException">Error during encoding.</exception>
+        public void WriteObject(Stream stream, XmlReader input)
+        {
+            //Encode AMF packet
+            if (_type.Value.AmfxType == AmfxContent.AmfxDocument)
+            {
+                var encoder = new AmfPacketEncoder(_encodingOptions);
+                encoder.Encode(stream, input);
+            }
+            //Encode generic AMF data
+            else
+            {
+                var encoder = CreateEncoder(_encodingOptions);
+                encoder.Encode(stream, input);
+            }
         }
 
         /// <summary>
@@ -244,23 +284,51 @@ namespace DotAmf.Serialization
         /// <exception cref="SerializationException">Unable to serialize data contracts.</exception>
         public override void WriteObject(XmlWriter writer, object graph)
         {
-            throw new NotSupportedException();
+            var context = new SerializationContext(_encodingOptions.AmfVersion) { KnownTypes = _knownTypes };
+
+            if (_type.Value.AmfxType == AmfxContent.AmfxDocument)
+                SerializePacket(writer, graph, context); //Special case
+            else
+                Serialize(writer, graph, context);
         }
 
-        public override void WriteStartObject(XmlDictionaryWriter writer, object graph)
-        {
-            throw new NotSupportedException();
-        }
-
+        /// <summary>
+        /// Writes the XML content that can be mapped to Action Message Format (AMF) using an XmlDictionaryWriter.
+        /// </summary>
+        /// <param name="writer">The XmlDictionaryWriter used to write to.</param>
+        /// <param name="graph">The object to write.</param>
         public override void WriteObjectContent(XmlDictionaryWriter writer, object graph)
         {
-            throw new NotSupportedException();
+            WriteObjectContent((XmlWriter)writer, graph);
+        }
+
+        /// <summary>
+        /// Writes the XML content that can be mapped to Action Message Format (AMF) using an XmlWriter.
+        /// </summary>
+        /// <param name="writer">The XmlWriter used to write to.</param>
+        /// <param name="graph">The object to write.</param>
+        public override void WriteObjectContent(XmlWriter writer, object graph)
+        {
+            WriteObject(writer, graph);
+        }
+
+        #region Obsolete methods
+        public override void WriteStartObject(XmlDictionaryWriter writer, object graph)
+        {
+        }
+
+        public override void WriteStartObject(XmlWriter writer, object graph)
+        {
         }
 
         public override void WriteEndObject(XmlDictionaryWriter writer)
         {
-            throw new NotSupportedException();
         }
+
+        public override void WriteEndObject(XmlWriter writer)
+        {
+        }
+        #endregion
         #endregion
 
         #region Deserialization
@@ -292,7 +360,7 @@ namespace DotAmf.Serialization
                     while (headerreader.Read())
                     {
                         //Skip until header content is found, if any
-                        if (reader.NodeType != XmlNodeType.Element || reader.Name == AmfxContent.PacketHeader)
+                        if (headerreader.NodeType != XmlNodeType.Element || headerreader.Name == AmfxContent.PacketHeader)
                             continue;
 
                         header.Data = Deserialize(headerreader, context);
@@ -318,7 +386,7 @@ namespace DotAmf.Serialization
                     while (bodyreader.Read())
                     {
                         //Skip until body content is found, if any
-                        if (reader.NodeType != XmlNodeType.Element || reader.Name == AmfxContent.PacketBody)
+                        if (bodyreader.NodeType != XmlNodeType.Element || bodyreader.Name == AmfxContent.PacketBody)
                             continue;
 
                         message.Data = Deserialize(bodyreader, context);
@@ -420,9 +488,9 @@ namespace DotAmf.Serialization
 
         private static string ReadString(XmlReader reader, SerializationContext context)
         {
-            if(reader.IsEmptyElement)
+            if (reader.IsEmptyElement)
             {
-                if(reader.AttributeCount > 0)
+                if (reader.AttributeCount > 0)
                 {
                     var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.StringId));
                     return context.StringReferences[index];
@@ -439,31 +507,25 @@ namespace DotAmf.Serialization
 
         private static DateTime ReadDate(XmlReader reader, SerializationContext context)
         {
-            var reference = new ObjectProxy();
-            context.References.Add(reference);
-
             var milliseconds = Convert.ToInt64(reader.ReadString());
             var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
             var offset = TimeSpan.FromMilliseconds(milliseconds);
             var result = origin + offset;
 
-            reference.Reference = result;
+            context.References.Add(new AmfReference(result));
 
             return result;
         }
 
         private static XmlDocument ReadXml(XmlReader reader, SerializationContext context)
         {
-            var reference = new ObjectProxy();
-            context.References.Add(reference);
-
             var encoded = reader.ReadString();
             var decoded = Convert.FromBase64String(encoded);
             var text = Encoding.UTF8.GetString(decoded);
             var result = new XmlDocument();
             result.LoadXml(text);
 
-            reference.Reference = result;
+            context.References.Add(new AmfReference(result));
 
             return result;
         }
@@ -471,7 +533,7 @@ namespace DotAmf.Serialization
         private static object ReadReference(XmlReader reader, SerializationContext context)
         {
             var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.ReferenceId));
-            return context.References[index].Reference;
+            return context.References[index];
         }
 
         private static object[] ReadArray(XmlReader reader, SerializationContext context)
@@ -479,7 +541,7 @@ namespace DotAmf.Serialization
             var length = Convert.ToInt32(reader.GetAttribute(AmfxContent.ArrayLength));
 
             var result = new object[length];
-            context.References.Add(new ObjectProxy(result));
+            context.References.Add(new AmfReference(result));
 
             if (length == 0) return result;
 
@@ -496,6 +558,7 @@ namespace DotAmf.Serialization
                     itemreader.MoveToContent();
                     result[i] = Deserialize(itemreader, context);
                     itemreader.Close();
+                    reader.Read();
                 }
             }
 
@@ -506,13 +569,13 @@ namespace DotAmf.Serialization
         {
             var properties = new Dictionary<string, object>();
 
-            var proxy = new ObjectProxy();
-            context.References.Add(proxy);
+            var proxy = new object();
+            context.References.Add(new AmfReference(proxy));
 
             AmfTypeTraits traits = null;
             var typeName = string.Empty;
 
-            if(reader.HasAttributes)
+            if (reader.HasAttributes)
                 typeName = reader.GetAttribute(AmfxContent.ObjectType);
 
             #region Read traits
@@ -522,7 +585,7 @@ namespace DotAmf.Serialization
 
                 if (!reader.IsEmptyElement)
                 {
-                    traits = new AmfTypeTraits{ TypeName = typeName };
+                    traits = new AmfTypeTraits { TypeName = typeName };
                     context.TraitsReferences.Add(traits);
 
                     var traitsReader = reader.ReadSubtree();
@@ -546,7 +609,7 @@ namespace DotAmf.Serialization
                 break;
             }
 
-            if(traits == null) throw new SerializationException("Object traits not found.");
+            if (traits == null) throw new SerializationException("Object traits not found.");
             #endregion
 
             #region Read members
@@ -568,6 +631,10 @@ namespace DotAmf.Serialization
             #endregion
 
             #region Instantiate type
+            object result;
+            var objectindex = context.References.IndexOf(proxy);
+            context.References.RemoveAt(objectindex);
+
             if (!string.IsNullOrEmpty(traits.TypeName))
             {
                 if (!context.KnownTypes.ContainsKey(traits.TypeName))
@@ -575,13 +642,388 @@ namespace DotAmf.Serialization
 
                 var typeDescriptor = context.KnownTypes[traits.TypeName];
 
-                proxy.Reference = DataContractHelper.InstantiateContract(typeDescriptor.Type, properties);
+
+                result = DataContractHelper.InstantiateContract(typeDescriptor.Type, properties);
             }
             else
-                proxy.Reference = properties;
-            #endregion
+                result = properties;
 
-            return proxy.Reference;
+            context.References.Insert(objectindex, new AmfReference(result));
+
+            return result;
+            #endregion
+        }
+        #endregion
+
+        #region Serialization
+        /// <summary>
+        /// Serialize an AMFX packet.
+        /// </summary>
+        /// <exception cref="SerializationException">Error during serialization.</exception>
+        private static void SerializePacket(XmlWriter writer, object graph, SerializationContext context)
+        {
+            if (writer == null) throw new ArgumentNullException("writer");
+            if (context == null) throw new ArgumentNullException("context");
+            if (graph == null) throw new ArgumentNullException("graph");
+
+            var packet = graph as AmfPacket;
+            if (packet == null) throw new SerializationException("Object is not an AmfPacket");
+
+            writer.WriteStartDocument();
+            writer.WriteStartElement(AmfxContent.AmfxDocument, AmfxContent.Namespace);
+            writer.WriteAttributeString(AmfxContent.VersionAttribute, context.AmfVersion.ToAmfxName());
+
+            //Write headers
+            foreach (var header in packet.Headers.Values)
+            {
+                writer.WriteStartElement(AmfxContent.PacketHeader);
+                writer.WriteAttributeString(AmfxContent.PacketHeaderName, header.Name);
+                writer.WriteAttributeString(AmfxContent.PacketHeaderMustUnderstand, header.MustUnderstand.ToString());
+                Serialize(writer, header.Data, context);
+                writer.WriteEndElement();
+
+                context.ResetReferences();
+            }
+
+            //Write bodies
+            foreach (var body in packet.Messages)
+            {
+                writer.WriteStartElement(AmfxContent.PacketBody);
+                writer.WriteAttributeString(AmfxContent.PacketBodyTarget, body.Target);
+                writer.WriteAttributeString(AmfxContent.PacketBodyResponse, body.Response);
+                Serialize(writer, body.Data, context);
+                writer.WriteEndElement();
+
+                context.ResetReferences();
+            }
+
+            writer.WriteEndElement();
+            writer.WriteEndDocument();
+        }
+
+        /// <summary>
+        /// Serialize AMFX data.
+        /// </summary>
+        /// <exception cref="SerializationException">Error during serialization.</exception>
+        private static void Serialize(XmlWriter writer, object value, SerializationContext context)
+        {
+            if (writer == null) throw new ArgumentNullException("writer");
+            if (context == null) throw new ArgumentNullException("context");
+
+            //A null value
+            if (value == null)
+            {
+                WriteEmptyElement(writer, AmfxContent.Null);
+                return;
+            }
+
+            bool isDataContract;
+            var type = value.GetType();
+            var amfxtype = GetAmfxType(type, out isDataContract);
+
+            //A data contract type
+            if (amfxtype == AmfxContent.Object)
+            {
+                if (isDataContract)
+                {
+                    var alias = (from pair in context.KnownTypes
+                                 where pair.Value.Type == type
+                                 select pair.Key).FirstOrDefault();
+
+                    if (alias == null)
+                    {
+                        throw new SerializationException(
+                            string.Format(
+                                "Unable to resolve type '{0}'. Check if type was registered within the serializer.",
+                                type.FullName));
+                    }
+                }
+
+                WriteDataContract(writer, value, type, context, isDataContract);
+                return;
+            }
+
+            //Handle enums
+            if (type.IsEnum)
+            {
+                WriteElement(writer, amfxtype, Convert.ToInt32(value).ToString());
+                return;
+            }
+
+            switch (amfxtype)
+            {
+                case AmfxContent.Boolean:
+                    WriteEmptyElement(writer, (bool)value ? AmfxContent.True : AmfxContent.False);
+                    break;
+
+                case AmfxContent.Integer:
+                case AmfxContent.Double:
+                    WriteElement(writer, amfxtype, value.ToString());
+                    break;
+
+                case AmfxContent.String:
+                    WriteString(writer, value.ToString(), context);
+                    break;
+
+                case AmfxContent.Date:
+                    WriteDate(writer, (DateTime)value, context);
+                    break;
+
+                case AmfxContent.ByteArray:
+                    WriteByteArray(writer, (byte[])value, context);
+                    break;
+
+                case AmfxContent.Xml:
+                    WriteXml(writer, (XmlDocument)value, context);
+                    break;
+
+                case AmfxContent.Array:
+                    WriteArray(writer, (object[])value, context);
+                    break;
+
+                default:
+                    throw new SerializationException(string.Format("Unable to serialize type '{0}'", type.FullName));
+            }
+        }
+
+        /// <summary>
+        /// Write an empty element.
+        /// </summary>
+        private static void WriteEmptyElement(XmlWriter writer, string elementName, IEnumerable<KeyValuePair<string, string>> attributes = null)
+        {
+            writer.WriteStartElement(elementName);
+
+            if (attributes != null)
+            {
+                foreach (var pair in attributes)
+                    writer.WriteAttributeString(pair.Key, pair.Value);
+            }
+
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Write an element.
+        /// </summary>
+        private static void WriteElement(XmlWriter writer, string elementName, string value, IEnumerable<KeyValuePair<string, string>> attributes = null)
+        {
+            writer.WriteStartElement(elementName);
+
+            if (attributes != null)
+            {
+                foreach (var pair in attributes)
+                    writer.WriteAttributeString(pair.Key, pair.Value);
+            }
+
+            writer.WriteValue(value);
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Write a string.
+        /// </summary>
+        private static void WriteString(XmlWriter writer, string value, SerializationContext context)
+        {
+            var index = context.StringReferences.IndexOf(value);
+
+            //Write a string
+            if (value == string.Empty || index == -1 || context.AmfVersion != AmfVersion.Amf3)
+            {
+                if (value != string.Empty)
+                    context.StringReferences.Add(value);
+
+                WriteElement(writer, AmfxContent.String, value);
+            }
+            //Write a string reference. Only in AMF+
+            else
+            {
+                var attributes = new Dictionary<string, string> { { AmfxContent.StringId, index.ToString() } };
+                WriteEmptyElement(writer, AmfxContent.String, attributes);
+            }
+        }
+
+        /// <summary>
+        /// Write a date.
+        /// </summary>
+        private static void WriteDate(XmlWriter writer, DateTime value, SerializationContext context)
+        {
+            var index = context.References.IndexOf(value);
+
+            //Write a date
+            if (index == -1 || context.AmfVersion != AmfVersion.Amf3)
+            {
+                var timestamp = DataContractHelper.ConvertToTimestamp(value);
+                context.References.Add(new AmfReference(value));
+                WriteElement(writer, AmfxContent.Date, timestamp.ToString());
+            }
+            //Write a date reference. Only in AMF+
+            else
+            {
+                var attributes = new Dictionary<string, string> { { AmfxContent.ReferenceId, index.ToString() } };
+                WriteEmptyElement(writer, AmfxContent.Reference, attributes);
+            }
+        }
+
+        /// <summary>
+        /// Write an XML.
+        /// </summary>
+        private static void WriteXml(XmlWriter writer, XmlDocument value, SerializationContext context)
+        {
+            var index = context.References.IndexOf(value);
+
+            //Write an XML
+            if (index == -1 || context.AmfVersion != AmfVersion.Amf3)
+            {
+                context.References.Add(new AmfReference(value));
+                WriteElement(writer, AmfxContent.Xml, value.ToString());
+            }
+            //Write an XML reference. Only in AMF+
+            else
+            {
+                var attributes = new Dictionary<string, string> { { AmfxContent.ReferenceId, index.ToString() } };
+                WriteEmptyElement(writer, AmfxContent.Reference, attributes);
+            }
+        }
+
+        /// <summary>
+        /// Write a byte array.
+        /// </summary>
+        private static void WriteByteArray(XmlWriter writer, byte[] value, SerializationContext context)
+        {
+            var index = context.References.IndexOf(value);
+
+            //Write a byte array
+            if (index == -1 || context.AmfVersion != AmfVersion.Amf3)
+            {
+                var data = Convert.ToBase64String(value);
+
+                context.References.Add(new AmfReference(value));
+                WriteElement(writer, AmfxContent.ByteArray, data);
+            }
+            //Write a byte array reference. Only in AMF+
+            else
+            {
+                var attributes = new Dictionary<string, string> { { AmfxContent.ReferenceId, index.ToString() } };
+                WriteEmptyElement(writer, AmfxContent.Reference, attributes);
+            }
+        }
+
+        /// <summary>
+        /// Write an array.
+        /// </summary>
+        private static void WriteArray(XmlWriter writer, object[] value, SerializationContext context)
+        {
+            var index = context.References.IndexOf(value);
+
+            //Write an array
+            if (index == -1 || context.AmfVersion != AmfVersion.Amf3)
+            {
+                context.References.Add(new AmfReference(value));
+
+                writer.WriteStartElement(AmfxContent.Array);
+                writer.WriteAttributeString(AmfxContent.ArrayLength, value.Length.ToString());
+
+                foreach (var item in value)
+                    Serialize(writer, item, context);
+
+                writer.WriteEndElement();
+            }
+            //Write an array reference. Only in AMF+
+            else
+            {
+                var attributes = new Dictionary<string, string> { { AmfxContent.ReferenceId, index.ToString() } };
+                WriteEmptyElement(writer, AmfxContent.Reference, attributes);
+            }
+        }
+
+        /// <summary>
+        /// Write an object.
+        /// </summary>
+        private static void WriteDataContract(XmlWriter writer, object graph, Type type, SerializationContext context, bool isDataContract)
+        {
+            var index = context.References.IndexOf(graph);
+
+            //Write object reference
+            if (index != -1)
+            {
+                var attributes = new Dictionary<string, string> { { AmfxContent.ReferenceId, index.ToString() } };
+                WriteEmptyElement(writer, AmfxContent.Reference, attributes);
+                return;
+            }
+
+            Dictionary<string, object> properties;
+
+            if (isDataContract)
+            {
+                var alias = DataContractHelper.GetContractAlias(type);
+                var traitsindex = context.TraitsIndex(alias);
+
+                writer.WriteStartElement(AmfxContent.Object);
+
+                if (!string.IsNullOrEmpty(alias))
+                {
+                    writer.WriteAttributeString(AmfxContent.ObjectType, alias);
+
+                    if (traitsindex == -1)
+                    {
+                        var typeNameIndex = context.StringReferences.IndexOf(alias);
+                        if (typeNameIndex == -1) context.StringReferences.Add(alias);
+                    }
+                }
+
+                properties = DataContractHelper.GetContractProperties(graph);
+
+                //Write traits by reference
+                if (traitsindex != -1 && context.AmfVersion == AmfVersion.Amf3)
+                {
+                    var attributes = new Dictionary<string, string> { { AmfxContent.TraitsId, traitsindex.ToString() } };
+                    WriteEmptyElement(writer, AmfxContent.Traits, attributes);
+                }
+                //Write traits
+                else
+                {
+                    var traits = new AmfTypeTraits { TypeName = alias, ClassMembers = properties.Keys.ToArray() };
+                    context.TraitsReferences.Add(traits);
+
+                    writer.WriteStartElement(AmfxContent.Traits);
+
+                    foreach (var propertyName in properties.Keys)
+                    {
+                        WriteElement(writer, AmfxContent.String, propertyName);
+
+                        var memberNameIndex = context.StringReferences.IndexOf(propertyName);
+                        if (memberNameIndex == -1) context.StringReferences.Add(propertyName);
+                    }
+
+                    writer.WriteEndElement(); //End of traits
+                }
+            }
+            else
+            {
+                var map = (IDictionary)graph;
+                properties = new Dictionary<string, object>();
+
+                foreach (var key in map.Keys)
+                    properties[key.ToString()] = map[key];
+
+                writer.WriteStartElement(AmfxContent.Object);
+
+                writer.WriteStartElement(AmfxContent.Traits);
+
+                foreach (var propertyName in properties.Keys)
+                {
+                    WriteElement(writer, AmfxContent.String, propertyName);
+                    var memberNameIndex = context.StringReferences.IndexOf(propertyName);
+                    if (memberNameIndex == -1) context.StringReferences.Add(propertyName);
+                }
+
+                writer.WriteEndElement(); //End of traits
+            }
+
+            foreach (var value in properties.Values)
+                Serialize(writer, value, context);
+
+            writer.WriteEndElement(); //End of object
         }
         #endregion
 
@@ -596,6 +1038,25 @@ namespace DotAmf.Serialization
                            AmfVersion = AmfVersion.Amf3,
                            UseContextSwitch = false
                        };
+        }
+
+        /// <summary>
+        /// Create AMF encoder.
+        /// </summary>
+        /// <param name="encodingOptions">AMF encoding options.</param>
+        static private IAmfEncoder CreateEncoder(AmfEncodingOptions encodingOptions)
+        {
+            switch (encodingOptions.AmfVersion)
+            {
+                case AmfVersion.Amf0:
+                    return new Amf0Encoder(encodingOptions);
+
+                case AmfVersion.Amf3:
+                    return new Amf3Encoder(encodingOptions);
+
+                default:
+                    throw new NotSupportedException();
+            }
         }
 
         /// <summary>
@@ -630,12 +1091,18 @@ namespace DotAmf.Serialization
 
             try
             {
-                var alias = DataContractHelper.GetContractAlias(type);
+                bool isDataContract;
+                var amfxType = GetAmfxType(type, out isDataContract);
+                var alias = isDataContract
+                    ? DataContractHelper.GetContractAlias(type)
+                    : type.FullName;
+
                 var descriptor = new DataContractDescriptor
-                                     {
-                                         Type = type,
-                                         AmfxType = GetAmfxType(type)
-                                     };
+                {
+                    Type = type,
+                    IsPrimitive = !isDataContract,
+                    AmfxType = amfxType
+                };
 
                 return new KeyValuePair<string, DataContractDescriptor>(alias, descriptor);
             }
@@ -662,9 +1129,10 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Get AMFX type for a CLR type.
         /// </summary>
-        static private string GetAmfxType(Type type)
+        static private string GetAmfxType(Type type, out bool isDataContract)
         {
             if (type == null) throw new ArgumentNullException("type");
+            isDataContract = false;
 
             //A boolean value
             if (type == typeof(bool))
@@ -674,7 +1142,7 @@ namespace DotAmf.Serialization
             if (type == typeof(string))
                 return AmfxContent.String;
 
-            //A string
+            //A date
             if (type == typeof(DateTime))
                 return AmfxContent.Date;
 
@@ -685,7 +1153,11 @@ namespace DotAmf.Serialization
 
             //An array
             if (type.IsArray)
-                return AmfxContent.Array;
+            {
+                return type == typeof(byte[])
+                    ? AmfxContent.ByteArray
+                    : AmfxContent.Array;
+            }
 
             //An enumeration
             if (type.IsEnum)
@@ -695,10 +1167,23 @@ namespace DotAmf.Serialization
             if (type == typeof(XmlDocument))
                 return AmfxContent.Xml;
 
+            //A guid
+            if (type == typeof(Guid))
+                return AmfxContent.String;
+
             //A special case
             if (type == typeof(AmfPacket))
-                return AmfxContent.AmfxRoot;
+            {
+                isDataContract = true;
+                return AmfxContent.AmfxDocument;
+            }
 
+            //A dictionary
+            if (type.IsGenericType && typeof(IDictionary).IsAssignableFrom(type))
+                return AmfxContent.Object;
+
+            //Probably a data contract
+            isDataContract = true;
             return AmfxContent.Object;
         }
         #endregion
@@ -715,43 +1200,25 @@ namespace DotAmf.Serialization
             public Type Type { get; set; }
 
             /// <summary>
+            /// Type is a primitive type.
+            /// </summary>
+            public bool IsPrimitive { get; set; }
+
+            /// <summary>
             /// Data contract type's AMFX type.
             /// </summary>
             public string AmfxType { get; set; }
         }
 
         /// <summary>
-        /// Serialized object proxy.
-        /// </summary>
-        sealed private class ObjectProxy
-        {
-            #region .ctor
-            public ObjectProxy()
-            {}
-
-            public ObjectProxy(object reference)
-            {
-                Reference = reference;
-            }
-            #endregion
-
-            /// <summary>
-            /// Actual object reference.
-            /// </summary>
-            public object Reference { get; set; }
-        }
-
-        /// <summary>
         /// AMFX serialization context.
         /// </summary>
-        sealed private class SerializationContext
+        sealed private class SerializationContext : AmfContext
         {
             #region .ctor
-            public SerializationContext()
+            public SerializationContext(AmfVersion version)
+                : base(version)
             {
-                References = new List<ObjectProxy>();
-                StringReferences = new List<string>();
-                TraitsReferences = new List<AmfTypeTraits>();
             }
             #endregion
 
@@ -760,21 +1227,6 @@ namespace DotAmf.Serialization
             /// Contains the types that may be present in the object graph.
             /// </summary>
             public Dictionary<string, DataContractDescriptor> KnownTypes { get; set; }
-
-            /// <summary>
-            /// Object references.
-            /// </summary>
-            public IList<ObjectProxy> References { get; private set; }
-
-            /// <summary>
-            /// String references.
-            /// </summary>
-            public IList<string> StringReferences { get; private set; }
-
-            /// <summary>
-            /// Traits references.
-            /// </summary>
-            public IList<AmfTypeTraits> TraitsReferences { get; private set; }
             #endregion
         }
         #endregion

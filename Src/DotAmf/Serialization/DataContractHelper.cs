@@ -236,6 +236,19 @@ namespace DotAmf.Serialization
 
             return false;
         }
+
+        /// <summary>
+        /// Convert a <c>DateTime</c> to a UNIX timestamp in milliseconds.
+        /// </summary>
+        static public double ConvertToTimestamp(DateTime value)
+        {
+            var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+
+            if (value.Kind != DateTimeKind.Utc)
+                origin = origin.ToLocalTime();
+
+            return (value - origin).TotalSeconds * 1000;
+        }
         #endregion
     }
 }

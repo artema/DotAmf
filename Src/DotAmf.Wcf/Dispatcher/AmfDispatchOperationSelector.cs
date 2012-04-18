@@ -36,8 +36,17 @@ namespace DotAmf.ServiceModel.Dispatcher
         /// <returns>The name of the service operation to call.</returns>
         public string SelectOperation(ref Message message)
         {
+            AmfPacket packet;
+
             //Read AMF packet from the message
-            var packet = message.GetBody<AmfPacket>(_context.AmfSerializer);
+            try
+            {
+                packet = message.GetBody<AmfPacket>(_context.AmfSerializer);
+            }
+            finally
+            {
+                message.Close();
+            }
 
             //Batch request
             if (packet.Messages.Count > 1)

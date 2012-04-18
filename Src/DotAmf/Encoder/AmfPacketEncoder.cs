@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Xml;
 using DotAmf.Data;
 using DotAmf.IO;
 
@@ -30,63 +31,137 @@ namespace DotAmf.Encoder
 
         #region Public methods
         /// <summary>
-        /// Write an AMF packet.
+        /// Encode an AMF packet from an AMFX format.
         /// </summary>
         /// <exception cref="InvalidDataException">Error during encoding.</exception>
-        public void Write(Stream stream, AmfPacket packet)
+        public void Encode(Stream stream, XmlReader input)
         {
             if (stream == null) throw new ArgumentNullException("stream");
-            if (!stream.CanWrite)
-                throw new ArgumentException(Errors.AmfPacketWriter_Write_StreamNotWriteable, "stream");
+            if (!stream.CanWrite) throw new ArgumentException(Errors.AmfPacketWriter_Write_StreamNotWriteable, "stream");
+            if (input == null) throw new ArgumentNullException("input");
 
-            if(packet == null) throw new ArgumentNullException("packet");
-            if (packet.Messages.Count == 0) 
-                throw new ArgumentException(Errors.AmfPacketWriter_Write_PacketEmpty, "packet");
+            var headerstream = new MemoryStream();
+            var bodystream = new MemoryStream();
+            var headercount = 0;
+            var bodycount = 0;
 
-            using(var writer = new AmfStreamWriter(stream))
+            try
             {
-                var encoder = CreateEncoder(writer, _options);
+                #region Encode data
+                var encoder = CreateEncoder(_options);
 
-                try
+                input.MoveToContent();
+
+                while (input.Read())
                 {
-                    WriteAmfVersion(writer, _options.AmfVersion);
-                    WriteHeaderCount(writer, packet.Headers.Count);
+                    if (input.NodeType != XmlNodeType.Element) continue;
 
-                    foreach (var pair in packet.Headers)
+                    #region Read packet header
+                    if (input.Name == AmfxContent.PacketHeader)
                     {
-                        encoder.WritePacketHeader(pair.Value);
+                        headercount++;
+
+                        var header = new AmfHeaderDescriptor();
+                        var headerreader = input.ReadSubtree();
+                        headerreader.MoveToContent();
+
+                        header.Name = headerreader.GetAttribute(AmfxContent.PacketHeaderName);
+                        header.MustUnderstand = (headerreader.GetAttribute(AmfxContent.PacketHeaderMustUnderstand) == AmfxContent.True);
+                        encoder.WritePacketHeader(headerstream, header);
+
+                        while (headerreader.Read())
+                        {
+                            //Skip until header content is found, if any
+                            if (headerreader.NodeType != XmlNodeType.Element || headerreader.Name == AmfxContent.PacketHeader)
+                                continue;
+                            
+                            encoder.Encode(headerstream, headerreader);
+                            break;
+                        }
+
+                        headerreader.Close();
+                        continue;
                     }
+                    #endregion
 
-                    WriteMessageCount(writer, packet.Messages.Count);
-
-                    foreach (var message in packet.Messages)
+                    #region Read packet body
+                    if (input.Name == AmfxContent.PacketBody)
                     {
-                        encoder.WritePacketBody(message);
+                        bodycount++;
+
+                        var message = new AmfMessageDescriptor();
+                        var bodyreader = input.ReadSubtree();
+                        bodyreader.MoveToContent();
+
+                        message.Target = bodyreader.GetAttribute(AmfxContent.PacketBodyTarget);
+                        message.Response = bodyreader.GetAttribute(AmfxContent.PacketBodyResponse);
+                        encoder.WritePacketBody(bodystream, message);
+
+                        while (bodyreader.Read())
+                        {
+                            //Skip until body content is found, if any
+                            if (bodyreader.NodeType != XmlNodeType.Element || bodyreader.Name == AmfxContent.PacketBody)
+                                continue;
+                            
+                            encoder.Encode(bodystream, bodyreader);
+                            break;
+                        }
+
+                        bodyreader.Close();
+                        continue;
                     }
+                    #endregion
                 }
-                catch (Exception e)
+                #endregion
+
+                #region Write data
+                var amfStreamWriter = new AmfStreamWriter(stream);
+
+                WriteAmfVersion(amfStreamWriter, _options.AmfVersion);
+
+                WriteHeaderCount(amfStreamWriter, headercount);
+
+                if(headercount > 0)
                 {
-                    throw new InvalidDataException(Errors.AmfPacketEncoder_EncodingError, e);
+                    headerstream.Seek(0, SeekOrigin.Begin);
+                    headerstream.CopyTo(stream);
                 }
+
+                WriteMessageCount(amfStreamWriter, bodycount);
+
+                if (bodycount > 0)
+                {
+                    bodystream.Seek(0, SeekOrigin.Begin);
+                    bodystream.CopyTo(stream);
+                }
+                #endregion
+            }
+            catch (Exception e)
+            {
+                throw new InvalidDataException(Errors.AmfPacketReader_DecodingError, e);
+            }
+            finally
+            {
+                headerstream.Dispose();
+                bodystream.Dispose();
             }
         }
         #endregion
 
         #region Private methods
         /// <summary>
-        /// Create AMF encoder.
+        /// Create an AMF encoder.
         /// </summary>
-        /// <param name="writer">AMF stream writer.</param>
         /// <param name="options">Encoding options.</param>
-        static private IAmfEncoder CreateEncoder(BinaryWriter writer, AmfEncodingOptions options)
+        static private IAmfEncoder CreateEncoder(AmfEncodingOptions options)
         {
             switch (options.AmfVersion)
             {
                 case AmfVersion.Amf0:
-                    return new Amf0Encoder(writer, options);
+                    return new Amf0Encoder(options);
 
                 case AmfVersion.Amf3:
-                    return new Amf3Encoder(writer, options);
+                    return new Amf3Encoder(options);
 
                 default:
                     throw new NotSupportedException();

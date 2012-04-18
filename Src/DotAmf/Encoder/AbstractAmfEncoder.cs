@@ -1,7 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
+using System.Xml;
 using DotAmf.Data;
+using DotAmf.IO;
 
 namespace DotAmf.Encoder
 {
@@ -14,116 +16,52 @@ namespace DotAmf.Encoder
         /// <summary>
         /// Constructor.
         /// </summary>
-        /// <param name="writer">AMF stream writer.</param>
-        /// <param name="options">AMF encoding options.</param>
-        protected AbstractAmfEncoder(BinaryWriter writer, AmfEncodingOptions options)
+        /// <param name="encodingOptions">AMF encoding options.</param>
+        protected AbstractAmfEncoder(AmfEncodingOptions encodingOptions)
         {
-            if (writer == null) throw new ArgumentNullException("writer");
-            _writer = writer;
-
-            _options = options;
-
-            //In mixed context enviroinments, 
-            //AMF0 is always used by default
-            _currentAmfVersion = _options.UseContextSwitch
-                ? AmfVersion.Amf0
-                : _options.AmfVersion;
-
-            _references = new List<object>();
+            EncodingOptions = encodingOptions;
         }
         #endregion
 
         #region Data
         /// <summary>
-        /// AMF stream writer.
-        /// </summary>
-        private readonly BinaryWriter _writer;
-
-        /// <summary>
-        /// Object references.
-        /// </summary>
-        private readonly List<object> _references;
-
-        /// <summary>
         /// AMF encoding options.
         /// </summary>
-        private readonly AmfEncodingOptions _options;
-
-        /// <summary>
-        /// Current AMF version.
-        /// </summary>
-        private AmfVersion _currentAmfVersion;
-        #endregion
-
-        #region Properties
-        /// <summary>
-        /// Stream writer.
-        /// </summary>
-        protected BinaryWriter Writer { get { return _writer; } }
-
-        /// <summary>
-        /// References.
-        /// </summary>
-        protected IList<object> References { get { return _references; } }
-
-        /// <summary>
-        /// Gets or sets current AMF version.
-        /// </summary>
-        protected AmfVersion CurrentAmfVersion
-        {
-            get { return _currentAmfVersion; }
-            set
-            {
-                if (_currentAmfVersion == value) return;
-                _currentAmfVersion = value;
-
-                ClearReferences();
-            }
-        }
+        protected AmfEncodingOptions EncodingOptions { get; private set; }
         #endregion
 
         #region IAmfSerializer implementation
-        public virtual void ClearReferences()
-        {
-            References.Clear();
-        }
+        public abstract void Encode(Stream stream, XmlReader input);
 
-        public abstract void WritePacketHeader(AmfHeader header);
+        public abstract void WritePacketHeader(Stream stream, AmfHeaderDescriptor descriptor);
 
-        public abstract void WritePacketBody(AmfMessage message);
-
-        public abstract void WriteValue(object value);
+        public abstract void WritePacketBody(Stream stream, AmfMessageDescriptor descriptor);
         #endregion
 
-        #region Protected methods
+        #region Proptected methods
         /// <summary>
-        /// Save an object to a list of object references.
+        /// Write AMF value from the current position.
         /// </summary>
-        /// <param name="item">Object to save.</param>
-        /// <returns><c>null</c> if the item was added to the reference list,
-        /// or a position in reference list if the item has already been added.</returns>
-        protected int? SaveReference(object item)
-        {
-            var index = References.IndexOf(item);
-            if (index != -1) return index;
+        /// <param name="context">AMF decoding context.</param>
+        /// <param name="input">AMFX input reader.</param>
+        /// <param name="writer">AMF stream writer.</param>
+        /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
+        /// <exception cref="FormatException">Invalid data format.</exception>
+        /// <exception cref="SerializationException">Error during serialization.</exception>
+        protected abstract void WriteAmfValue(AmfContext context, XmlReader input, AmfStreamWriter writer);
 
-            References.Add(item);
-            return null;
-        }
-        #endregion
-        
-        #region Helper methods
         /// <summary>
-        /// Convert a <c>DateTime</c> to a UNIX timestamp in milliseconds.
+        /// Create default AMF decoding context.
         /// </summary>
-        protected static double ConvertToTimestamp(DateTime value)
+        protected AmfContext CreateDefaultContext()
         {
-            var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+            //In mixed context enviroinments, 
+            //AMF0 is always used by default
+            var amfVersion = EncodingOptions.UseContextSwitch
+                ? AmfVersion.Amf0
+                : EncodingOptions.AmfVersion;
 
-            if (value.Kind != DateTimeKind.Utc)
-                origin = origin.ToLocalTime();
-
-            return (value - origin).TotalSeconds * 1000;
+            return new AmfContext(amfVersion);
         }
         #endregion
     }

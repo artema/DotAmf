@@ -28,8 +28,8 @@ namespace DotAmf.Decoder
         override public void Decode(Stream stream, XmlWriter output)
         {
             var reader = new AmfStreamReader(stream);
-            var context = CreateDefaultContext(reader);
-            ReadAmfValue(context, output);
+            var context = CreateDefaultContext();
+            ReadAmfValue(context, reader, output);
         }
         #endregion
 
@@ -38,13 +38,14 @@ namespace DotAmf.Decoder
         /// Read an object reference.
         /// </summary>
         /// <param name="context">AMF decoding context.</param>
+        /// <param name="reader">AMF reader.</param>
         /// <param name="index">Reference index.</param>
         /// <param name="reference">Reference value.</param>
         /// <returns>Referenced object or <c>null</c> if value does not contain a reference.</returns>
         /// <exception cref="SerializationException">Invalid reference.</exception>
-        private static bool ReadReference(AmfEncodingContext context, out int index, out int reference)
+        private static bool ReadReference(AmfContext context, AmfStreamReader reader, out int index, out int reference)
         {
-            reference = ReadUint29(context);
+            reference = ReadUint29(reader);
 
             //The first bit is a flag with value 0 to imply that this is not an instance but a reference
             if ((reference & 0x1) == 0)
@@ -52,7 +53,7 @@ namespace DotAmf.Decoder
                 //The remaining 1 to 28 significant bits are used to encode an object reference index
                 index = reference >> 1;
 
-                if (context.References <= index)
+                if (context.References.Count <= index)
                     throw new SerializationException("Invalid reference index: " + index);
 
                 return true;
@@ -66,13 +67,14 @@ namespace DotAmf.Decoder
         /// Read a string reference.
         /// </summary>
         /// <param name="context">AMF decoding context.</param>
+        /// <param name="reader">AMF reader.</param>
         /// <param name="index">Reference index.</param>
         /// <param name="reference">Reference value.</param>
         /// <returns>Referenced string or <c>null</c> if value does not contain a reference.</returns>
         /// <exception cref="SerializationException">Invalid reference.</exception>
-        private static string ReadStringReference(AmfEncodingContext context, out int index, out int reference)
+        private static string ReadStringReference(AmfContext context, AmfStreamReader reader, out int index, out int reference)
         {
-            reference = ReadUint29(context);
+            reference = ReadUint29(reader);
 
             //The first bit is a flag with value 0
             if ((reference & 0x1) == 0)
@@ -94,13 +96,14 @@ namespace DotAmf.Decoder
         /// Read a traits reference.
         /// </summary>
         /// <param name="context">AMF decoding context.</param>
+        /// <param name="reader">AMF reader.</param>
         /// <param name="index">Reference index.</param>
         /// <param name="reference">Reference value.</param>
         /// <returns>Referenced traits object or <c>null</c> if value does not contain a reference.</returns>
         /// <exception cref="SerializationException">Invalid reference.</exception>
-        private static AmfTypeTraits ReadTraitsReference(AmfEncodingContext context, out int index, out int reference)
+        private static AmfTypeTraits ReadTraitsReference(AmfContext context, AmfStreamReader reader, out int index, out int reference)
         {
-            reference = ReadUint29(context);
+            reference = ReadUint29(reader);
 
             //The first bit is a flag with value 1. The second bit is a flag with value 0 to imply 
             //that this objects traits are being sent by reference
@@ -136,28 +139,28 @@ namespace DotAmf.Decoder
         /// 0x40000000 - 0xFFFFFFFF : throw range exception
         /// </c>
         /// </remarks>
-        private static int ReadUint29(AmfEncodingContext context)
+        private static int ReadUint29(AmfStreamReader reader)
         {
             const byte mask = 0x7F; //0111 1111
-            var octet = context.Reader.ReadByte() & 0xFF;
+            var octet = reader.ReadByte() & 0xFF;
 
             //0xxxxxxx
             if (octet < 128) return octet;
 
             var result = (octet & mask) << 7;
-            octet = context.Reader.ReadByte() & 0xFF;
+            octet = reader.ReadByte() & 0xFF;
 
             //1xxxxxxx 0xxxxxxx
             if (octet < 128) return (result | octet);
 
             result = (result | (octet & mask)) << 7;
-            octet = context.Reader.ReadByte() & 0xFF;
+            octet = reader.ReadByte() & 0xFF;
 
             //1xxxxxxx 1xxxxxxx 0xxxxxxx
             if (octet < 128) return (result | octet);
 
             result = (result | (octet & mask)) << 8;
-            octet = context.Reader.ReadByte() & 0xFF;
+            octet = reader.ReadByte() & 0xFF;
 
             //1xxxxxxx 1xxxxxxx 1xxxxxxx xxxxxxxx
             return (result | octet);
@@ -166,16 +169,16 @@ namespace DotAmf.Decoder
         /// <summary>
         /// Read a specified number of bytes of a string.
         /// </summary>
-        /// <param name="context">AMF decoding context.</param>
+        /// <param name="reader">AMF reader.</param>
         /// <param name="length">Number of bytes to read.</param>
-        private static string ReadUtf8(AmfEncodingContext context, int length)
+        private static string ReadUtf8(AmfStreamReader reader, int length)
         {
             if (length < 0) throw new ArgumentException(Errors.Amf3Deserializer_ReadString_NegativeLength, "length");
 
             //Make sure that a null is never returned
             if (length == 0) return string.Empty;
 
-            var data = context.Reader.ReadBytes(length);
+            var data = reader.ReadBytes(length);
 
             //All strings are encoded in UTF-8
             return Encoding.UTF8.GetString(data);
@@ -208,12 +211,12 @@ namespace DotAmf.Decoder
         #endregion
 
         #region Deserialization methods
-        protected override void ReadAmfValue(AmfEncodingContext context, XmlWriter output = null)
+        protected override void ReadAmfValue(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             //Work in a legacy context
             if (context.AmfVersion == AmfVersion.Amf0)
             {
-                base.ReadAmfValue(context, output);
+                base.ReadAmfValue(context, reader, output);
                 return;
             }
 
@@ -222,21 +225,21 @@ namespace DotAmf.Decoder
             try
             {
                 //Read a type marker byte
-                dataType = (Amf3TypeMarker)context.Reader.ReadByte();
+                dataType = (Amf3TypeMarker)reader.ReadByte();
             }
             catch (Exception e)
             {
                 #if DEBUG
-                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_InvalidMarker, context.Reader.BaseStream.Position));
+                Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_InvalidMarker, reader.BaseStream.Position));
                 #endif
 
-                throw new FormatException(string.Format(Errors.Amf3Decoder_ReadValue_TypeMarkerNotFound, context.Reader.BaseStream.Position), e);
+                throw new FormatException(string.Format(Errors.Amf3Decoder_ReadValue_TypeMarkerNotFound, reader.BaseStream.Position), e);
             }
 
-            ReadValue(context, dataType, output);
+            ReadValue(context, reader, dataType, output);
 
             #if DEBUG
-            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_End, dataType, context.Reader.BaseStream.Position));
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_End, dataType, reader.BaseStream.Position));
             #endif
         }
 
@@ -247,15 +250,16 @@ namespace DotAmf.Decoder
         /// Current reader position must be just after a value type marker of a type to read.
         /// </remarks>
         /// <param name="context">AMF decoding context.</param>
+        /// <param name="reader">AMF reader.</param>
         /// <param name="type">Type of the value to read.</param>
         /// <param name="output">AMFX output.</param>
         /// <exception cref="NotSupportedException">AMF type is not supported.</exception>
         /// <exception cref="FormatException">Unknown data format.</exception>
         /// <exception cref="SerializationException">Error during deserialization.</exception>
-        private void ReadValue(AmfEncodingContext context, Amf3TypeMarker type, XmlWriter output = null)
+        private void ReadValue(AmfContext context, AmfStreamReader reader, Amf3TypeMarker type, XmlWriter output = null)
         {
             #if DEBUG
-            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_Debug, type, context.Reader.BaseStream.Position));
+            Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadValue_Debug, type, reader.BaseStream.Position));
             #endif
 
             switch (type)
@@ -274,36 +278,36 @@ namespace DotAmf.Decoder
                     break;
 
                 case Amf3TypeMarker.Integer:
-                    ReadInteger(context, output);
+                    ReadInteger(reader, output);
                     break;
 
                 case Amf3TypeMarker.Double:
-                    ReadDouble(context, output);
+                    ReadDouble(reader, output);
                     break;
 
                 case Amf3TypeMarker.String:
-                    ReadString(context, output);
+                    ReadString(context, reader, output);
                     break;
 
                 case Amf3TypeMarker.Date:
-                    ReadDate(context, output);
+                    ReadDate(context, reader, output);
                     break;
 
                 case Amf3TypeMarker.ByteArray:
-                    ReadByteArray(context, output);
+                    ReadByteArray(context, reader, output);
                     break;
 
                 case Amf3TypeMarker.Xml:
                 case Amf3TypeMarker.XmlDocument:
-                    ReadXml(context, output);
+                    ReadXml(context, reader, output);
                     break;
 
                 case Amf3TypeMarker.Array:
-                    ReadArray(context, output);
+                    ReadArray(context, reader, output);
                     break;
 
                 case Amf3TypeMarker.Object:
-                    ReadObject(context, output);
+                    ReadObject(context, reader, output);
                     break;
 
                 default:
@@ -315,9 +319,9 @@ namespace DotAmf.Decoder
         /// <summary>
         /// Read an integer.
         /// </summary>
-        private static void ReadInteger(AmfEncodingContext context, XmlWriter output = null)
+        private static void ReadInteger(AmfStreamReader reader, XmlWriter output = null)
         {
-            var value = ReadUint29(context);
+            var value = ReadUint29(reader);
 
             if (output != null)
             {
@@ -330,9 +334,9 @@ namespace DotAmf.Decoder
         /// <summary>
         /// Read a double.
         /// </summary>
-        private static void ReadDouble(AmfEncodingContext context, XmlWriter output = null)
+        private static void ReadDouble(AmfStreamReader reader, XmlWriter output = null)
         {
-            var value = context.Reader.ReadDouble();
+            var value = reader.ReadDouble();
 
             if (output != null)
             {
@@ -355,12 +359,12 @@ namespace DotAmf.Decoder
         /// UTF-8-vr = U29S-ref | (U29S-value *(UTF8-char))
         /// string-type = string-marker UTF-8-vr</c>
         /// </remarks>
-        private static string ReadString(AmfEncodingContext context, XmlWriter output = null)
+        private static string ReadString(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             int index, reference;
             string cache;
 
-            if ((cache = ReadStringReference(context, out index, out reference)) != null)
+            if ((cache = ReadStringReference(context, reader, out index, out reference)) != null)
             {
                 if (output != null)
                 {
@@ -374,7 +378,7 @@ namespace DotAmf.Decoder
 
             //Get string length
             var length = (reference >> 1);
-            var value = ReadUtf8(context, length);
+            var value = ReadUtf8(reader, length);
 
             context.StringReferences.Add(value);
 
@@ -398,21 +402,21 @@ namespace DotAmf.Decoder
         /// date-time = DOUBLE (A 64-bit integer value transported as a double).
         /// date-type = date-marker (U29O-ref | (U29D-value date-time))</c>
         /// </remarks>
-        private static void ReadDate(AmfEncodingContext context, XmlWriter output = null)
+        private static void ReadDate(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             int index, reference;
 
-            if (ReadReference(context, out index, out reference))
+            if (ReadReference(context, reader, out index, out reference))
             {
                 if (output != null) WriteReference(index, output);
                 return;
             }
 
             //Dates are represented as an Unix time stamp, but in milliseconds
-            var milliseconds = context.Reader.ReadDouble();
+            var milliseconds = reader.ReadDouble();
             var value = milliseconds.ToString();
 
-            context.CountReference();
+            context.References.Track();
 
             if (output != null)
             {
@@ -432,11 +436,11 @@ namespace DotAmf.Decoder
         /// byte-length of the ByteArray).
         /// bytearray-type = bytearray-marker (U29O-ref | U29B-value *(U8))</c>
         /// </remarks>
-        private static void ReadByteArray(AmfEncodingContext context, XmlWriter output = null)
+        private static void ReadByteArray(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             int index, reference;
 
-            if (ReadReference(context, out index, out reference))
+            if (ReadReference(context, reader, out index, out reference))
             {
                 if (output != null) WriteReference(index, output);
                 return;
@@ -444,10 +448,10 @@ namespace DotAmf.Decoder
 
             //Get array length
             var length = (reference >> 1);
-            var data = length == 0 ? new byte[] { } : context.Reader.ReadBytes(length);
+            var data = length == 0 ? new byte[] { } : reader.ReadBytes(length);
             var value = Convert.ToBase64String(data);
 
-            context.CountReference();
+            context.References.Track();
 
             if (output != null)
             {
@@ -467,11 +471,11 @@ namespace DotAmf.Decoder
         /// of the UTF-8 encoded representation of the XML or XMLDocument). 
         /// xml-doc-type = xml-doc-marker (U29O-ref | (U29X-value *(UTF8-char)))</c>
         /// </remarks>
-        private static void ReadXml(AmfEncodingContext context, XmlWriter output = null)
+        private static void ReadXml(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             int index, reference;
 
-            if (ReadReference(context, out index, out reference))
+            if (ReadReference(context, reader, out index, out reference))
             {
                 if (output != null) WriteReference(index, output);
                 return;
@@ -479,9 +483,9 @@ namespace DotAmf.Decoder
 
             //Get XML string length
             var length = (reference >> 1);
-            var value = ReadUtf8(context, length);
+            var value = ReadUtf8(reader, length);
 
-            context.CountReference();
+            context.References.Track();
 
             if (output != null)
             {
@@ -505,18 +509,18 @@ namespace DotAmf.Decoder
         /// array-type = array-marker (U29O-ref | 
         /// (U29A-value (UTF-8-empty | *(assoc-value) UTF-8-empty) *(value-type)))</c>
         /// </remarks>
-        private void ReadArray(AmfEncodingContext context, XmlWriter output = null)
+        private void ReadArray(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             int index, reference;
 
-            if (ReadReference(context, out index, out reference))
+            if (ReadReference(context, reader, out index, out reference))
             {
                 if (output != null) WriteReference(index, output);
                 return;
             }
 
             var length = reference >> 1;
-            var key = ReadString(context);
+            var key = ReadString(context, reader);
 
             if (output != null)
             {
@@ -538,8 +542,8 @@ namespace DotAmf.Decoder
                         output.WriteAttributeString(AmfxContent.ArrayKey, key);
                     }
 
-                    ReadAmfValue(context, output);
-                    key = ReadString(context);
+                    ReadAmfValue(context, reader, output);
+                    key = ReadString(context, reader);
 
                     if (output != null) output.WriteEndElement();
                 }
@@ -547,18 +551,18 @@ namespace DotAmf.Decoder
 
                 //Read array values
                 for (var i = 0; i < length; i++)
-                    ReadAmfValue(context, output);
+                    ReadAmfValue(context, reader, output);
 
-                context.CountReference();
+                context.References.Track();
             }
             //Regular array
             else
             {
                 //Read array values
                 for (var i = 0; i < length; i++)
-                    ReadAmfValue(context, output);
+                    ReadAmfValue(context, reader, output);
 
-                context.CountReference();
+                context.References.Track();
             }
 
             if (output != null) output.WriteEndElement();
@@ -567,9 +571,9 @@ namespace DotAmf.Decoder
         /// <summary>
         /// Read an object.
         /// </summary>
-        private void ReadObject(AmfEncodingContext context, XmlWriter output = null)
+        private void ReadObject(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
-            var reference = context.Reader.PeekChar();
+            var reference = reader.PeekChar();
 
             if ((reference & 0x1) == 0)
             {
@@ -582,16 +586,16 @@ namespace DotAmf.Decoder
             AmfTypeTraits traits;
 
             #region Read object's traits
-            if ((traits = ReadTraitsReference(context, out traitsindex, out traitsreference)) == null)
+            if ((traits = ReadTraitsReference(context, reader, out traitsindex, out traitsreference)) == null)
             {
                 var isExternalizable = ((traitsreference & 0x4) == 4);
                 var isDynamic = ((traitsreference & 0x8) == 8);
-                var typeName = ReadString(context);
+                var typeName = ReadString(context, reader);
                 var count = (traitsreference >> 4);
                 var classMembers = new string[count];
 
                 for (var i = 0; i < count; i++)
-                    classMembers[i] = ReadString(context);
+                    classMembers[i] = ReadString(context, reader);
 
                 traits = new AmfTypeTraits
                              {
@@ -621,7 +625,7 @@ namespace DotAmf.Decoder
                 Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_Members, traits.ClassMembers.Length));
             #endif
 
-            context.CountReference();
+            context.References.Track();
 
             using (var ms = new MemoryStream())
             {
@@ -645,7 +649,7 @@ namespace DotAmf.Decoder
                     memberPosition++;
                     #endif
 
-                    ReadAmfValue(context, buffer);
+                    ReadAmfValue(context, reader, buffer);
                     members.Add(classMember);
                 }
 
@@ -656,7 +660,7 @@ namespace DotAmf.Decoder
                     Debug.WriteLine(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamic);
                     #endif
 
-                    var key = ReadString(context);
+                    var key = ReadString(context, reader);
 
                     while (key != string.Empty)
                     {
@@ -664,10 +668,10 @@ namespace DotAmf.Decoder
                         Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_ReadingDynamicField, key));
                         #endif
 
-                        ReadAmfValue(context, buffer);
+                        ReadAmfValue(context, reader, buffer);
                         members.Add(key);
 
-                        key = ReadString(context);
+                        key = ReadString(context, reader);
                     }
 
                     #if DEBUG
