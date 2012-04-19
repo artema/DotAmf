@@ -282,7 +282,8 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteInteger(AmfStreamWriter writer, XmlReader input)
         {
-            var value = Convert.ToInt64(input.ReadString());
+            var text = input.ReadString();
+            var value = Convert.ToInt64(text);
 
             //Check if the value fits the Int29 span
             if (value >= MinInt29Value && value <= MaxInt29Value)

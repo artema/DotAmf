@@ -130,6 +130,37 @@ namespace DotAmf.ServiceModel.Dispatcher
                 throw new InvalidDataContractException(string.Format("Type '{0}' is not a valid data contract.", type.FullName));
 
             _contracts.Add(type);
+
+            if (type.IsClass)
+            {
+                var memberTypes = ProcessClass(type);
+
+                foreach (var subtype in memberTypes)
+                {
+                    if (IsContractRegistered(subtype) || !IsValidDataContract(subtype)) continue;
+                    AddContract(subtype);
+                }
+            }
+        }
+
+        private IEnumerable<Type> ProcessClass(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+            if (!type.IsClass) throw new ArgumentException();
+
+            var result = new List<Type>();
+
+            var properties = from property in DataContractHelper.GetContractProperties(type)
+                             select property.Value.PropertyType;
+
+            result.AddRange(properties);
+
+            var fields = from field in DataContractHelper.GetContractFields(type)
+                         select field.Value.FieldType;
+
+            result.AddRange(fields);
+
+            return result;
         }
         #endregion
 

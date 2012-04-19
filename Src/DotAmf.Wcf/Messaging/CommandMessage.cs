@@ -95,87 +95,87 @@ namespace DotAmf.ServiceModel.Messaging
         /// <summary>
         /// This operation is used to subscribe to a remote destination.
         /// </summary>
-        [EnumMember(Value = "0")]
+        [EnumMember]
         Subscribe = 0,
 
         /// <summary>
         /// This operation is used to unsubscribe from a remote destination.
         /// </summary>
-        [EnumMember(Value = "1")]
+        [EnumMember]
         Unsubscribe = 1,
 
         /// <summary>
         /// This operation is used to poll a remote destination 
         /// for pending, undelivered messages.
         /// </summary>
-        [EnumMember(Value = "2")]
+        [EnumMember]
         Poll = 2,
 
         /// <summary>
         /// This operation is used by a remote destination to sync missed 
         /// or cached messages back to a client as a result of a client issued poll command.
         /// </summary>
-        [EnumMember(Value = "4")]
+        [EnumMember]
         ClientSync = 4,
 
         /// <summary>
         /// This operation is used to test connectivity 
         /// over the current channel to the remote endpoint.
         /// </summary>
-        [EnumMember(Value = "5")]
+        [EnumMember]
         ClientPing = 5,
 
         /// <summary>
         /// This operation is used to request a list of failover endpoint URIs 
         /// for the remote destination based on cluster membership.
         /// </summary>
-        [EnumMember(Value = "7")]
+        [EnumMember]
         ClusterRequest = 7,
 
         /// <summary>
         /// This operation is used to send credentials to the endpoint 
         /// so that the user can be logged in over the current channel.
         /// </summary>
-        [EnumMember(Value = "8")]
+        [EnumMember]
         Login = 8,
 
         /// <summary>
         /// This operation is used to log the user out of the current channel,
         /// and will invalidate the server session if the channel is HTTP based.
         /// </summary>
-        [EnumMember(Value = "9")]
+        [EnumMember]
         Logout = 9,
 
         /// <summary>
         /// This operation is used to indicate that the client's subscription 
         /// with a remote destination has timed out.
         /// </summary>
-        [EnumMember(Value = "10")]
+        [EnumMember]
         SubscriptionInvalidate = 10,
 
         /// <summary>
         /// Used by the MultiTopicConsumer to subscribe/unsubscribe 
         /// for more than one topic in the same message.
         /// </summary>
-        [EnumMember(Value = "11")]
+        [EnumMember]
         MultiSubscribe = 11,
 
         /// <summary>
         /// This operation is used to indicate that a channel has disconnected.
         /// </summary>
-        [EnumMember(Value = "12")]
+        [EnumMember]
         Disconnect = 12,
 
         /// <summary>
         /// This operation is used to trigger a ChannelSet to connect.
         /// </summary>
-        [EnumMember(Value = "13")]
+        [EnumMember]
         TriggerConnect = 13,
 
         /// <summary>
         /// Unknown operation.
         /// </summary>
-        [EnumMember(Value = "1000")]
+        [EnumMember]
         Unknown = 1000
     }
 }

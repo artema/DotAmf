@@ -740,11 +740,9 @@ namespace DotAmf.Serialization
             {
                 if (isDataContract)
                 {
-                    var alias = (from pair in context.KnownTypes
-                                 where pair.Value.Type == type
-                                 select pair.Key).FirstOrDefault();
+                    var descriptor = context.GetDescriptor(type);
 
-                    if (alias == null)
+                    if (descriptor == null)
                     {
                         throw new SerializationException(
                             string.Format(
@@ -760,7 +758,7 @@ namespace DotAmf.Serialization
             //Handle enums
             if (type.IsEnum)
             {
-                WriteElement(writer, amfxtype, Convert.ToInt32(value).ToString());
+                WriteElement(writer, amfxtype, GetEnumValue(context, type, value).ToString());
                 return;
             }
 
@@ -969,9 +967,7 @@ namespace DotAmf.Serialization
 
             if (isDataContract)
             {
-                var descriptor = (from pair in context.KnownTypes
-                             where pair.Value.Type == type
-                             select pair.Value).FirstOrDefault();
+                var descriptor = context.GetDescriptor(type);
 
                 if (descriptor == null)
                 {
@@ -1051,6 +1047,35 @@ namespace DotAmf.Serialization
 
             writer.WriteEndElement(); //End of object
         }
+
+        /// <summary>
+        /// Get a string representation of the enum value.
+        /// </summary>
+        /// <exception cref="SerializationException">Enum is not registered.</exception>
+        static private object GetEnumValue(SerializationContext context, Type type, object value)
+        {
+            if (value == null) throw new ArgumentNullException("value");
+
+            var descriptor = context.GetEnumDescriptor(type);
+
+            if (descriptor == null)
+            {
+                throw new SerializationException(
+                        string.Format(
+                            "Unable to resolve type '{0}'. Check if type was registered within the serializer.",
+                            type.FullName));
+            }
+
+            if (!descriptor.Values.ContainsKey(value))
+            {
+                throw new SerializationException(
+                        string.Format(
+                            "Invalid enumeration value '{0}'.",
+                            value));
+            }
+
+            return descriptor.Values[value];
+        }
         #endregion
 
         #region Helper methods
@@ -1123,13 +1148,25 @@ namespace DotAmf.Serialization
                     ? DataContractHelper.GetContractAlias(type)
                     : type.FullName;
 
-                var descriptor = new DataContractDescriptor
+                DataContractDescriptor descriptor;
+
+                if (type.IsEnum)
                 {
-                    Alias = alias,
-                    Type = type,
-                    IsPrimitive = !isDataContract,
-                    AmfxType = amfxType
-                };
+                    descriptor = new EnumDescriptor
+                                     {
+                                         Values = DataContractHelper.GetEnumValues(type)
+                                     };
+
+                }
+                else
+                {
+                    descriptor = new DataContractDescriptor();
+                }
+
+                descriptor.Alias = alias;
+                descriptor.Type = type;
+                descriptor.IsPrimitive = !isDataContract;
+                descriptor.AmfxType = amfxType;
 
                 if (isDataContract)
                 {
@@ -1179,6 +1216,10 @@ namespace DotAmf.Serialization
             if (type == typeof(DateTime))
                 return AmfxContent.Date;
 
+            //An enumeration
+            if (type.IsEnum)
+                return AmfxContent.Integer;
+
             //Check if type is a number
             bool isInteger;
             if (DataContractHelper.IsNumericType(type, out isInteger))
@@ -1191,10 +1232,6 @@ namespace DotAmf.Serialization
                     ? AmfxContent.ByteArray
                     : AmfxContent.Array;
             }
-
-            //An enumeration
-            if (type.IsEnum)
-                return AmfxContent.Integer;
 
             //An XML document
             if (type == typeof(XmlDocument))
@@ -1225,7 +1262,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Data contract descriptor.
         /// </summary>
-        sealed private class DataContractDescriptor
+        private class DataContractDescriptor
         {
             /// <summary>
             /// Data contract type's alias.
@@ -1259,6 +1296,17 @@ namespace DotAmf.Serialization
         }
 
         /// <summary>
+        /// Enum descriptor.
+        /// </summary>
+        private class EnumDescriptor : DataContractDescriptor
+        {
+            /// <summary>
+            /// Enumeration values.
+            /// </summary>
+            public Dictionary<object, object> Values { get; set; }
+        }
+
+        /// <summary>
         /// AMFX serialization context.
         /// </summary>
         sealed private class SerializationContext : AmfContext
@@ -1275,6 +1323,28 @@ namespace DotAmf.Serialization
             /// Contains the types that may be present in the object graph.
             /// </summary>
             public Dictionary<string, DataContractDescriptor> KnownTypes { get; set; }
+            #endregion
+
+            #region Public methods
+            /// <summary>
+            /// Get type's descriptor.
+            /// </summary>
+            /// <exception cref="SerializationException">Type is not registered.</exception>
+            public DataContractDescriptor GetDescriptor(Type type)
+            {
+                return (from pair in KnownTypes
+                        where pair.Value.Type == type
+                        select pair.Value).FirstOrDefault();
+            }
+
+            /// <summary>
+            /// Get enum type's descriptor.
+            /// </summary>
+            /// <exception cref="SerializationException">Type is not registered.</exception>
+            public EnumDescriptor GetEnumDescriptor(Type type)
+            {
+                return GetDescriptor(type) as EnumDescriptor;
+            }
             #endregion
         }
         #endregion

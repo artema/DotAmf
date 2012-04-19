@@ -314,6 +314,36 @@ namespace DotAmf.Serialization
 
             return (value - origin).TotalSeconds * 1000;
         }
+
+        /// <summary>
+        /// Get enumeration type's values.
+        /// </summary>
+        static public Dictionary<object, object> GetEnumValues(Type type)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+            if (!type.IsEnum) throw new ArgumentException("Type is not an enum.");
+
+            var result = new Dictionary<object, object>();
+            var enumType = Enum.GetUnderlyingType(type);
+
+            var isFlag = (type.GetCustomAttributes(false).OfType<FlagsAttribute>().FirstOrDefault() != null);
+
+            if (isFlag)
+            {
+                var maxEnumValue = (1 << (Enum.GetValues(type).Length -1));
+                var combinations = Enumerable.Range(0, maxEnumValue);
+
+                foreach (var value in combinations)
+                    result[Enum.ToObject(type, value)] = value;
+            }
+            else
+            {
+                foreach (var value in Enum.GetValues(type))
+                    result[value] = Convert.ChangeType(value, enumType);
+            }
+
+            return result;
+        }
         #endregion
     }
 }
