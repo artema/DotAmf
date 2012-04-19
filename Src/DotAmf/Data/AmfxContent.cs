@@ -36,6 +36,11 @@
         public const string PacketHeader = "header";
 
         /// <summary>
+        /// Packet header count.
+        /// </summary>
+        public const string PacketHeaderCount = "headers";
+
+        /// <summary>
         /// Packet header name.
         /// </summary>
         public const string PacketHeaderName = "name";
@@ -49,6 +54,11 @@
         /// Packet body.
         /// </summary>
         public const string PacketBody = "body";
+
+        /// <summary>
+        /// Packet body count.
+        /// </summary>
+        public const string PacketBodyCount = "bodies";
 
         /// <summary>
         /// Packet body target.

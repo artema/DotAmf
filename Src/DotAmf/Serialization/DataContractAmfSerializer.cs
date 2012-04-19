@@ -686,6 +686,8 @@ namespace DotAmf.Serialization
             writer.WriteStartDocument();
             writer.WriteStartElement(AmfxContent.AmfxDocument, AmfxContent.Namespace);
             writer.WriteAttributeString(AmfxContent.VersionAttribute, context.AmfVersion.ToAmfxName());
+            writer.WriteAttributeString(AmfxContent.PacketHeaderCount, packet.Headers.Count.ToString());
+            writer.WriteAttributeString(AmfxContent.PacketBodyCount, packet.Messages.Count.ToString());
 
             //Write headers
             foreach (var header in packet.Headers.Values)

@@ -39,43 +39,48 @@ namespace DotAmf.Encoder
             if (stream == null) throw new ArgumentNullException("stream");
             if (!stream.CanWrite) throw new ArgumentException(Errors.AmfPacketWriter_Write_StreamNotWriteable, "stream");
             if (input == null) throw new ArgumentNullException("input");
-
-            var headerstream = new MemoryStream();
-            var bodystream = new MemoryStream();
-            var headercount = 0;
-            var bodycount = 0;
-
+            
             try
             {
                 #region Encode data
                 var encoder = CreateEncoder(_options);
+                var amfStreamWriter = new AmfStreamWriter(stream);
+
+                WriteAmfVersion(amfStreamWriter, _options.AmfVersion);
 
                 input.MoveToContent();
+
+                var headerCount = Convert.ToInt32(input.GetAttribute(AmfxContent.PacketHeaderCount));
+                var bodyCount = Convert.ToInt32(input.GetAttribute(AmfxContent.PacketBodyCount));
 
                 while (input.Read())
                 {
                     if (input.NodeType != XmlNodeType.Element) continue;
 
+                    if (headerCount != -1)
+                    {
+                        WriteHeaderCount(amfStreamWriter, headerCount);
+                        headerCount = -1;
+                    }
+
                     #region Read packet header
                     if (input.Name == AmfxContent.PacketHeader)
                     {
-                        headercount++;
-
                         var header = new AmfHeaderDescriptor();
                         var headerreader = input.ReadSubtree();
                         headerreader.MoveToContent();
 
                         header.Name = headerreader.GetAttribute(AmfxContent.PacketHeaderName);
                         header.MustUnderstand = (headerreader.GetAttribute(AmfxContent.PacketHeaderMustUnderstand) == AmfxContent.True);
-                        encoder.WritePacketHeader(headerstream, header);
+                        encoder.WritePacketHeader(stream, header);
 
                         while (headerreader.Read())
                         {
                             //Skip until header content is found, if any
                             if (headerreader.NodeType != XmlNodeType.Element || headerreader.Name == AmfxContent.PacketHeader)
                                 continue;
-                            
-                            encoder.Encode(headerstream, headerreader);
+
+                            encoder.Encode(stream, headerreader);
                             break;
                         }
 
@@ -84,18 +89,22 @@ namespace DotAmf.Encoder
                     }
                     #endregion
 
+                    if (bodyCount != -1)
+                    {
+                        WriteMessageCount(amfStreamWriter, bodyCount);
+                        bodyCount = -1;
+                    }
+
                     #region Read packet body
                     if (input.Name == AmfxContent.PacketBody)
                     {
-                        bodycount++;
-
                         var message = new AmfMessageDescriptor();
                         var bodyreader = input.ReadSubtree();
                         bodyreader.MoveToContent();
 
                         message.Target = bodyreader.GetAttribute(AmfxContent.PacketBodyTarget);
                         message.Response = bodyreader.GetAttribute(AmfxContent.PacketBodyResponse);
-                        encoder.WritePacketBody(bodystream, message);
+                        encoder.WritePacketBody(stream, message);
 
                         while (bodyreader.Read())
                         {
@@ -103,7 +112,7 @@ namespace DotAmf.Encoder
                             if (bodyreader.NodeType != XmlNodeType.Element || bodyreader.Name == AmfxContent.PacketBody)
                                 continue;
                             
-                            encoder.Encode(bodystream, bodyreader);
+                            encoder.Encode(stream, bodyreader);
                             break;
                         }
 
@@ -113,37 +122,10 @@ namespace DotAmf.Encoder
                     #endregion
                 }
                 #endregion
-
-                #region Write data
-                var amfStreamWriter = new AmfStreamWriter(stream);
-
-                WriteAmfVersion(amfStreamWriter, _options.AmfVersion);
-
-                WriteHeaderCount(amfStreamWriter, headercount);
-
-                if(headercount > 0)
-                {
-                    headerstream.Seek(0, SeekOrigin.Begin);
-                    headerstream.CopyTo(stream);
-                }
-
-                WriteMessageCount(amfStreamWriter, bodycount);
-
-                if (bodycount > 0)
-                {
-                    bodystream.Seek(0, SeekOrigin.Begin);
-                    bodystream.CopyTo(stream);
-                }
-                #endregion
             }
             catch (Exception e)
             {
                 throw new InvalidDataException(Errors.AmfPacketReader_DecodingError, e);
-            }
-            finally
-            {
-                headerstream.Dispose();
-                bodystream.Dispose();
             }
         }
         #endregion
