@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
 using DotAmf.Data;
@@ -94,19 +93,19 @@ namespace DotAmf.Encoder
                     break;
 
                 case AmfxContent.String:
-                    WriteString(context, writer, reader);
+                    WriteString(writer, reader);
+                    break;
+
+                case AmfxContent.Date:
+                    WriteDate(writer, reader);
+                    break;
+
+                case AmfxContent.Xml:
+                    WriteXml(writer, reader);
                     break;
 
                 case AmfxContent.Reference:
                     WriteReference(context, writer, reader);
-                    break;
-
-                case AmfxContent.Date:
-                    WriteDate(context, writer, reader);
-                    break;
-
-                case AmfxContent.Xml:
-                    WriteXml(context, writer, reader);
                     break;
 
                 case AmfxContent.Array:
@@ -166,34 +165,11 @@ namespace DotAmf.Encoder
         /// <summary>
         /// Write a string.
         /// </summary>
-        private static void WriteString(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        private static void WriteString(AmfStreamWriter writer, XmlReader input)
         {
-            string value;
-
-            //Since strings are sent by reference only in AMF+,
-            //we need to keep tracking string references in AMF0 too
-            //in order to decode AMFX data correctly
-
-            //Empty string or string is sent by reference
-            if (input.IsEmptyElement)
-            {
-                if (input.AttributeCount > 0)
-                {
-                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.StringId));
-                    value = context.StringReferences[index];
-                }
-                else
-                {
-                    value = string.Empty;
-                    context.StringReferences.Add(value);
-                }
-            }
-            //String value
-            else
-            {
-                value = input.ReadString();
-                context.StringReferences.Add(value);
-            }
+            var value = input.IsEmptyElement 
+                ? string.Empty 
+                : input.ReadString();
 
             WriteString(writer, value);
         }
@@ -250,24 +226,17 @@ namespace DotAmf.Encoder
                     writer.Write((ushort)index);
                     break;
 
-                case AmfxContent.Date:
-                    WriteDate(writer, (double)proxy.Reference);
-                    break;
-
-                case AmfxContent.Xml:
-                    WriteXml(writer, (byte[])proxy.Reference);
-                    break;
+                default:
+                    throw new InvalidOperationException(string.Format("AMFX type '{0}' cannot be send by reference.", proxy.AmfxType));
             }
         }
 
         /// <summary>
         /// Write a date.
         /// </summary>
-        private static void WriteDate(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        private static void WriteDate(AmfStreamWriter writer, XmlReader input)
         {
             var value = Convert.ToDouble(input.ReadString());
-            context.References.Add(new AmfReference(value, AmfxContent.Date));
-
             WriteDate(writer, value);
         }
 
@@ -284,12 +253,10 @@ namespace DotAmf.Encoder
         /// <summary>
         /// Write an XML.
         /// </summary>
-        private static void WriteXml(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        private static void WriteXml(AmfStreamWriter writer, XmlReader input)
         {
             var value = input.ReadString();
             var data = Encoding.UTF8.GetBytes(value);
-            context.References.Add(new AmfReference(data, AmfxContent.Xml));
-
             WriteXml(writer, data);
         }
 
@@ -310,7 +277,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private void WriteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(null, AmfxContent.Array));
+            context.References.Add(new AmfReference(AmfxContent.Array));
 
             var length = Convert.ToUInt32(input.GetAttribute(AmfxContent.ArrayLength));
             writer.Write(length);
@@ -339,26 +306,24 @@ namespace DotAmf.Encoder
         /// </summary>
         private void WriteObject(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(null, AmfxContent.Object));
+            context.References.Add(new AmfReference(AmfxContent.Object));
 
             WriteTypeMarker(writer, Amf0TypeMarker.Object);
-
-            AmfTypeTraits traits = null;
+            
             var typeName = string.Empty;
 
             if (input.HasAttributes)
                 typeName = input.GetAttribute(AmfxContent.ObjectType);
 
             #region Read traits
+            var traits = new AmfTypeTraits { TypeName = typeName };
+
             while (input.Read())
             {
                 if (input.NodeType != XmlNodeType.Element && input.Name != AmfxContent.Traits) continue;
 
                 if (!input.IsEmptyElement)
                 {
-                    traits = new AmfTypeTraits { TypeName = typeName };
-                    context.TraitsReferences.Add(traits);
-
                     var traitsReader = input.ReadSubtree();
                     traitsReader.MoveToContent();
                     traitsReader.ReadStartElement();
@@ -371,16 +336,9 @@ namespace DotAmf.Encoder
                     traits.ClassMembers = members.ToArray();
                     traitsReader.Close();
                 }
-                else
-                {
-                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId));
-                    traits = context.TraitsReferences[index];
-                }
 
                 break;
             }
-
-            if (traits == null) throw new SerializationException("Object traits not found.");
             #endregion
 
             #region Type name

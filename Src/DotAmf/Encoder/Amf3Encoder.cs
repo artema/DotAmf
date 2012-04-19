@@ -223,6 +223,10 @@ namespace DotAmf.Encoder
                     WriteArray(context, writer, reader);
                     break;
 
+                case AmfxContent.ByteArray:
+                    WriteByteArray(context, writer, reader);
+                    break;
+
                 case AmfxContent.Object:
                     WriteObject(context, writer, reader);
                     break;
@@ -363,6 +367,26 @@ namespace DotAmf.Encoder
             var decoded = Convert.FromBase64String(encoded);
 
             WriteUtf8(writer, decoded);
+        }
+
+        /// <summary>
+        /// Write a byte array.
+        /// </summary>
+        private static void WriteByteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
+        {
+            context.References.Add(new AmfReference(AmfxContent.ByteArray));
+            WriteTypeMarker(writer, Amf3TypeMarker.ByteArray);
+
+            var encoded = input.ReadString();
+            var bytes = Convert.FromBase64String(encoded);
+
+            //The first bit is a flag with value 1.
+            //The remaining 1 to 28 significant bits are used
+            //to encode the byte-length of the data
+            var flag = (bytes.Length << 1) | 0x1;
+            WriteUInt29(writer, flag);
+
+            writer.Write(bytes);
         }
         #endregion
 

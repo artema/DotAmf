@@ -56,28 +56,63 @@ namespace DotAmf.Serialization
         /// Instantiate a data contract object and populate it with provided properties.
         /// </summary>
         /// <param name="type">Data contract type.</param>
-        /// <param name="properties">Properties to use.</param>
+        /// <param name="values">Values to use.</param>
         /// <returns>Data contract instance.</returns>
-        static public object InstantiateContract(Type type, IEnumerable<KeyValuePair<string, object>> properties)
+        static public object InstantiateContract(Type type, IEnumerable<KeyValuePair<string, object>> values)
         {
             if (type == null) throw new ArgumentNullException("type");
-            if (properties == null) throw new ArgumentNullException("properties");
+            if (values == null) throw new ArgumentNullException("values");
 
             var instance = Activator.CreateInstance(type);
 
+            var fieldMap = from data in GetContractFields(type)
+                           join prop in values on data.Key equals prop.Key
+                           select new { field = data.Value, value = prop.Value };
+
+            foreach (var pair in fieldMap)
+                pair.field.SetValue(instance, pair.value);
+
             var propertyMap = from data in GetContractProperties(type)
-                              join prop in properties on data.Key equals prop.Key
+                              join prop in values on data.Key equals prop.Key
                               select new { property = data.Value, value = prop.Value };
 
             foreach (var pair in propertyMap)
                 pair.property.SetValue(instance, pair.value, null);
 
-            var fieldMap = from data in GetContractFields(type)
-                           join prop in properties on data.Key equals prop.Key
+            return instance;
+        }
+
+        /// <summary>
+        /// Instantiate a data contract object and populate it with provided properties.
+        /// </summary>
+        /// <param name="type">Data contract type.</param>
+        /// <param name="values">Values to use.</param>
+        /// <param name="properties">Type's properties.</param>
+        /// <param name="fields">Type's fields.</param>
+        /// <returns>Type instance.</returns>
+        static public object InstantiateContract(
+            Type type,
+            IEnumerable<KeyValuePair<string, object>> values,
+            IEnumerable<KeyValuePair<string, PropertyInfo>> properties,
+            IEnumerable<KeyValuePair<string, FieldInfo>> fields)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+
+            var instance = Activator.CreateInstance(type);
+
+            var fieldMap = from data in fields
+                           join prop in values on data.Key equals prop.Key
                            select new { field = data.Value, value = prop.Value };
 
             foreach (var pair in fieldMap)
                 pair.field.SetValue(instance, pair.value);
+
+            var propertyMap = from data in properties
+                              join prop in values on data.Key equals prop.Key
+                              select new { property = data.Value, value = prop.Value };
+
+            foreach (var pair in propertyMap)
+                pair.property.SetValue(instance, pair.value, null);
 
             return instance;
         }
@@ -93,13 +128,43 @@ namespace DotAmf.Serialization
 
             var type = instance.GetType();
 
-            var properties = from data in GetContractProperties(type)
-                             select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
-
             var fields = from data in GetContractFields(type)
                          select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance));
 
-            var contents = properties.Concat(fields);
+            var properties = from data in GetContractProperties(type)
+                             select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
+
+            var contents = fields.Concat(properties);
+
+            var map = new Dictionary<string, object>();
+
+            foreach (var pair in contents)
+                map[pair.Key] = pair.Value;
+
+            return map;
+        }
+
+        /// <summary>
+        /// Get data contract object's properties.
+        /// </summary>
+        /// <param name="instance">Object instance.</param>
+        /// <param name="properties">Type's properties.</param>
+        /// <param name="fields">Type's fields.</param>
+        /// <returns>A set of property name-value pairs.</returns>
+        static public Dictionary<string, object> GetContractProperties(
+            object instance,
+            IEnumerable<KeyValuePair<string, PropertyInfo>> properties,
+            IEnumerable<KeyValuePair<string, FieldInfo>> fields)
+        {
+            if (instance == null) throw new ArgumentNullException("instance");
+
+            var fieldValues = from data in fields
+                              select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance));
+
+            var propertiyValues = from data in properties
+                                  select new KeyValuePair<string, object>(data.Key, data.Value.GetValue(instance, null));
+
+            var contents = fieldValues.Concat(propertiyValues);
 
             var map = new Dictionary<string, object>();
 
@@ -226,12 +291,12 @@ namespace DotAmf.Serialization
                     return true;
 
                 case TypeCode.Object:
-                {
-                    if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-                        return IsNumericType(Nullable.GetUnderlyingType(type), out isInteger);
+                    {
+                        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                            return IsNumericType(Nullable.GetUnderlyingType(type), out isInteger);
 
-                    return false;
-                }
+                        return false;
+                    }
             }
 
             return false;
