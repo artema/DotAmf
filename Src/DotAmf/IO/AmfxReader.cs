@@ -23,7 +23,10 @@ namespace DotAmf.IO
                 IgnoreProcessingInstructions = true,
                 ValidationFlags = XmlSchemaValidationFlags.None,
                 ValidationType = ValidationType.None,
-                CloseInput = handleDispose
+                CloseInput = handleDispose,
+                CheckCharacters = false,
+                IgnoreComments = true,
+                IgnoreWhitespace = true
             };
 
             return XmlReader.Create(stream, settings);

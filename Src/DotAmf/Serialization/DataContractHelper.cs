@@ -257,22 +257,22 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Check if type is a numeric type.
         /// </summary>
-        static public bool IsNumericType(Type type)
+        static public bool IsNumericType(Type type, TypeCode typecode)
         {
             bool isInteger;
-            return IsNumericType(type, out isInteger);
+            return IsNumericType(type,  typecode, out isInteger);
         }
 
         /// <summary>
         /// Check if type is a numeric type.
         /// </summary>
-        static public bool IsNumericType(Type type, out bool isInteger)
+        static public bool IsNumericType(Type type, TypeCode typecode, out bool isInteger)
         {
             isInteger = false;
 
             if (type == null) return false;
 
-            switch (Type.GetTypeCode(type))
+            switch (typecode)
             {
                 case TypeCode.Byte:
                 case TypeCode.Int16:
@@ -293,7 +293,10 @@ namespace DotAmf.Serialization
                 case TypeCode.Object:
                     {
                         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
-                            return IsNumericType(Nullable.GetUnderlyingType(type), out isInteger);
+                        {
+                            var subtype = Nullable.GetUnderlyingType(type);
+                            return IsNumericType(subtype, Type.GetTypeCode(subtype), out isInteger);
+                        }
 
                         return false;
                     }

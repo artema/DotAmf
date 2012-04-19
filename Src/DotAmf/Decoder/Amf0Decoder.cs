@@ -211,6 +211,8 @@ namespace DotAmf.Decoder
                 default:
                     throw new FormatException(string.Format(Errors.Amf0Decoder_ReadValue_UnknownType, (byte)type));
             }
+
+            if (output != null) output.Flush();
         }
 
         #region Primitive types

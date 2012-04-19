@@ -66,25 +66,25 @@ namespace DotAmf.Encoder
                     #region Read packet header
                     if (input.Name == AmfxContent.PacketHeader)
                     {
-                        var header = new AmfHeaderDescriptor();
-                        var headerreader = input.ReadSubtree();
-                        headerreader.MoveToContent();
+                        var header = new AmfHeaderDescriptor
+                                         {
+                                             Name = input.GetAttribute(AmfxContent.PacketHeaderName),
+                                             MustUnderstand =
+                                                 (input.GetAttribute(AmfxContent.PacketHeaderMustUnderstand) ==
+                                                  AmfxContent.True)
+                                         };
 
-                        header.Name = headerreader.GetAttribute(AmfxContent.PacketHeaderName);
-                        header.MustUnderstand = (headerreader.GetAttribute(AmfxContent.PacketHeaderMustUnderstand) == AmfxContent.True);
                         encoder.WritePacketHeader(stream, header);
 
-                        while (headerreader.Read())
+                        while (input.Read())
                         {
                             //Skip until header content is found, if any
-                            if (headerreader.NodeType != XmlNodeType.Element || headerreader.Name == AmfxContent.PacketHeader)
+                            if (input.NodeType != XmlNodeType.Element || input.Name == AmfxContent.PacketHeader)
                                 continue;
 
-                            encoder.Encode(stream, headerreader);
+                            encoder.Encode(stream, input);
                             break;
                         }
-
-                        headerreader.Close();
                         continue;
                     }
                     #endregion
@@ -98,25 +98,23 @@ namespace DotAmf.Encoder
                     #region Read packet body
                     if (input.Name == AmfxContent.PacketBody)
                     {
-                        var message = new AmfMessageDescriptor();
-                        var bodyreader = input.ReadSubtree();
-                        bodyreader.MoveToContent();
+                        var message = new AmfMessageDescriptor
+                                          {
+                                              Target = input.GetAttribute(AmfxContent.PacketBodyTarget),
+                                              Response = input.GetAttribute(AmfxContent.PacketBodyResponse)
+                                          };
 
-                        message.Target = bodyreader.GetAttribute(AmfxContent.PacketBodyTarget);
-                        message.Response = bodyreader.GetAttribute(AmfxContent.PacketBodyResponse);
                         encoder.WritePacketBody(stream, message);
 
-                        while (bodyreader.Read())
+                        while (input.Read())
                         {
                             //Skip until body content is found, if any
-                            if (bodyreader.NodeType != XmlNodeType.Element || bodyreader.Name == AmfxContent.PacketBody)
+                            if (input.NodeType != XmlNodeType.Element || input.Name == AmfxContent.PacketBody)
                                 continue;
-                            
-                            encoder.Encode(stream, bodyreader);
+
+                            encoder.Encode(stream, input);
                             break;
                         }
-
-                        bodyreader.Close();
                         continue;
                     }
                     #endregion

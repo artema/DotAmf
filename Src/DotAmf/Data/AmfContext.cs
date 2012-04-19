@@ -27,17 +27,17 @@ namespace DotAmf.Data
         /// <summary>
         /// Object references.
         /// </summary>
-        public IList<AmfReference> References { get; private set; }
+        public List<AmfReference> References { get; private set; }
 
         /// <summary>
         /// String references.
         /// </summary>
-        public IList<string> StringReferences { get; private set; }
+        public List<string> StringReferences { get; private set; }
 
         /// <summary>
         /// Traits references.
         /// </summary>
-        public IList<AmfTypeTraits> TraitsReferences { get; private set; }
+        public List<AmfTypeTraits> TraitsReferences { get; private set; }
         #endregion
 
         #region Public methods
@@ -70,39 +70,18 @@ namespace DotAmf.Data
     /// <summary>
     /// AMF reference.
     /// </summary>
-    sealed class AmfReference
+    struct AmfReference
     {
-        #region .ctor
-        public AmfReference()
-        {}
-
-        public AmfReference(object reference)
-        {
-            Reference = reference;
-        }
-
-        public AmfReference(object reference, string amfxType)
-        {
-            Reference = reference;
-            AmfxType = amfxType;
-        }
-
-        public AmfReference(string amfxType)
-        {
-            AmfxType = amfxType;
-        }
-        #endregion
-
         #region Properties
         /// <summary>
         /// Object reference.
         /// </summary>
-        public object Reference { get; set; }
+        public object Reference;
 
         /// <summary>
         /// AMFX type name.
         /// </summary>
-        public string AmfxType { get; set; }
+        public string AmfxType;
         #endregion
     }
 
@@ -115,7 +94,7 @@ namespace DotAmf.Data
         /// <summary>
         /// Get reference index.
         /// </summary>
-        static public int IndexOf(this IList<AmfReference> list, object reference)
+        static public int IndexOf(this List<AmfReference> list, object reference)
         {
             if (reference == null) return -1;
 
@@ -123,7 +102,7 @@ namespace DotAmf.Data
             {
                 var proxy = list[i];
 
-                if (proxy == null) continue;
+                if (proxy.Reference == null) continue;
                 if (list[i].Reference == reference) return i;
             }
 
@@ -135,7 +114,7 @@ namespace DotAmf.Data
         /// </summary>
         static public void Track(this IList<AmfReference> list)
         {
-            list.Add(null);
+            list.Add(default(AmfReference));
         }
     }
     #endregion

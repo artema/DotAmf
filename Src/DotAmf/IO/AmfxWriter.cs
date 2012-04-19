@@ -21,7 +21,9 @@ namespace DotAmf.IO
             {
                 CheckCharacters = false,
                 Encoding = Encoding.UTF8,
-                CloseOutput = handleDispose
+                CloseOutput = handleDispose,
+                NewLineHandling = NewLineHandling.None,
+                OmitXmlDeclaration = true
             };
 
             return XmlWriter.Create(stream, settings);

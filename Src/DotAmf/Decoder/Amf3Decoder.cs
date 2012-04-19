@@ -313,6 +313,8 @@ namespace DotAmf.Decoder
                 default:
                     throw new NotSupportedException("Type '" + type + "' is not supported.");
             }
+
+            if (output != null) output.Flush();
         }
 
         #region Primitive types
