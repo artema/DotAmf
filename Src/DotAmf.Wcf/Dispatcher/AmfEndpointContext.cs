@@ -143,24 +143,34 @@ namespace DotAmf.ServiceModel.Dispatcher
             }
         }
 
-        private IEnumerable<Type> ProcessClass(Type type)
+        private IEnumerable<Type> ProcessClass(Type classType)
         {
-            if (type == null) throw new ArgumentNullException("type");
-            if (!type.IsClass) throw new ArgumentException();
+            if (classType == null) throw new ArgumentNullException("classType");
+            if (!classType.IsClass) throw new ArgumentException();
 
-            var result = new List<Type>();
+            var types = new List<Type>();
 
-            var properties = from property in DataContractHelper.GetContractProperties(type)
+            var properties = from property in DataContractHelper.GetContractProperties(classType)
                              select property.Value.PropertyType;
 
-            result.AddRange(properties);
+            types.AddRange(properties);
 
-            var fields = from field in DataContractHelper.GetContractFields(type)
+            var fields = from field in DataContractHelper.GetContractFields(classType)
                          select field.Value.FieldType;
 
-            result.AddRange(fields);
+            types.AddRange(fields);
 
-            return result;
+            //Handle complex types
+            for (var i = 0; i < types.Count; i++)
+            {
+                var type = types[i];
+
+                //Type is an array
+                if (type.IsArray && type.HasElementType)
+                    types[i] = type.GetElementType();
+            }
+
+            return types;
         }
         #endregion
 
