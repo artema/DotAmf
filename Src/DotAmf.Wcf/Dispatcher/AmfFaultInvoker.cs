@@ -1,4 +1,9 @@
-﻿using System.ServiceModel;
+﻿// Copyright (c) 2012 Artem Abashev (http://abashev.me)
+// All rights reserved.
+// Licensed under the Microsoft Public License (Ms-PL)
+// http://opensource.org/licenses/ms-pl.html
+
+using System.ServiceModel;
 using DotAmf.ServiceModel.Configuration;
 using DotAmf.ServiceModel.Faults;
 using DotAmf.ServiceModel.Messaging;
