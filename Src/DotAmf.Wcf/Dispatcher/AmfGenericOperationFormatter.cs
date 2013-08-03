@@ -47,7 +47,9 @@ namespace DotAmf.ServiceModel.Dispatcher
             else
                 input = amfrequest.AmfMessage.Data as object[];
 
-            if (input != null && input.Length == 0) return;
+            if (input != null && input.Length == 0 || input == null) return;
+
+            input = input[0] as object[];
 
             if (input == null || input.Length != parameters.Length)
                 throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
