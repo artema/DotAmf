@@ -364,7 +364,7 @@ namespace DotAmf.Encoder
             WriteTypeMarker(writer, Amf3TypeMarker.Xml);
 
             var encoded = input.ReadString();
-            var decoded = Convert.FromBase64String(encoded);
+            var decoded = Encoding.UTF8.GetBytes(encoded);
 
             WriteUtf8(writer, decoded);
         }

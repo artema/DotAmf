@@ -531,9 +531,7 @@ namespace DotAmf.Serialization
 
         private static XmlDocument ReadXml(XmlReader reader, SerializationContext context)
         {
-            var encoded = reader.ReadString();
-            var decoded = Convert.FromBase64String(encoded);
-            var text = Encoding.UTF8.GetString(decoded);
+            var text = reader.ReadString();
             var result = new XmlDocument();
             result.LoadXml(text);
 
@@ -878,7 +876,16 @@ namespace DotAmf.Serialization
             if (context.AmfVersion != AmfVersion.Amf3 || (index = context.References.IndexOf(value)) == -1)
             {
                 context.References.Add(new AmfReference { Reference = value });
-                WriteElement(writer, AmfxContent.Xml, value.ToString());
+
+                string content;
+
+                using (var stream = new MemoryStream())
+                {
+                    value.Save(stream);
+                    content = Encoding.UTF8.GetString(stream.ToArray());
+                }
+
+                WriteElement(writer, AmfxContent.Xml, content);
             }
             //Write an XML reference. Only in AMF+
             else
