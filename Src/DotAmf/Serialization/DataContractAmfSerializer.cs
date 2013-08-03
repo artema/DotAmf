@@ -563,6 +563,19 @@ namespace DotAmf.Serialization
                 reader.Read();
             }
 
+            var valueTypes = result.Where(x => x != null).Select(x => x.GetType()).Distinct().ToArray();
+
+            if (valueTypes.Length == 1)
+            {
+                var elementType = valueTypes.First();
+                var convertedArray = Array.CreateInstance(elementType, result.Length);
+
+                for (var i = 0; i < result.Length; i++)
+                    convertedArray.SetValue(result[i], i);
+
+                return (object[])convertedArray;
+            }
+
             return result;
         }
 
