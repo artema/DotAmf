@@ -1,8 +1,12 @@
-﻿using System;
+﻿// Copyright (c) 2012 Artem Abashev (http://abashev.me)
+// All rights reserved.
+// Licensed under the Microsoft Public License (Ms-PL)
+// http://opensource.org/licenses/ms-pl.html
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Text;
 using System.Xml;
 using DotAmf.Data;
@@ -190,52 +194,47 @@ namespace DotAmf.Encoder
             #endregion
 
             #region Complex values
-            var reader = input.ReadSubtree();
-            reader.MoveToContent();
-
-            switch (reader.Name)
+            switch (input.Name)
             {
                 case AmfxContent.Integer:
-                    WriteInteger(writer, reader);
+                    WriteInteger(writer, input);
                     break;
 
                 case AmfxContent.Double:
-                    WriteDouble(writer, reader);
+                    WriteDouble(writer, input);
                     break;
 
                 case AmfxContent.String:
-                    WriteString(context, writer, reader);
+                    WriteString(context, writer, input);
                     break;
 
                 case AmfxContent.Reference:
-                    WriteReference(context, writer, reader);
+                    WriteReference(context, writer, input);
                     break;
 
                 case AmfxContent.Date:
-                    WriteDate(context, writer, reader);
+                    WriteDate(context, writer, input);
                     break;
 
                 case AmfxContent.Xml:
-                    WriteXml(context, writer, reader);
+                    WriteXml(context, writer, input);
                     break;
 
                 case AmfxContent.Array:
-                    WriteArray(context, writer, reader);
+                    WriteArray(context, writer, input);
                     break;
 
                 case AmfxContent.ByteArray:
-                    WriteByteArray(context, writer, reader);
+                    WriteByteArray(context, writer, input);
                     break;
 
                 case AmfxContent.Object:
-                    WriteObject(context, writer, reader);
+                    WriteObject(context, writer, input);
                     break;
 
                 default:
-                    throw new NotSupportedException("Unexpected AMFX type: " + reader.Name);
+                    throw new NotSupportedException("Unexpected AMFX type: " + input.Name);
             }
-
-            reader.Close();
             #endregion
         }
 
@@ -344,7 +343,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteDate(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.Date));
+            context.References.Add(new AmfReference { AmfxType = AmfxContent.Date });
             WriteTypeMarker(writer, Amf3TypeMarker.Date);
 
             var milliseconds = Convert.ToDouble(input.ReadString());
@@ -361,11 +360,11 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteXml(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.Xml));
+            context.References.Add(new AmfReference {AmfxType = AmfxContent.Xml});
             WriteTypeMarker(writer, Amf3TypeMarker.Xml);
 
             var encoded = input.ReadString();
-            var decoded = Convert.FromBase64String(encoded);
+            var decoded = Encoding.UTF8.GetBytes(encoded);
 
             WriteUtf8(writer, decoded);
         }
@@ -375,7 +374,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteByteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.ByteArray));
+            context.References.Add(new AmfReference { AmfxType = AmfxContent.ByteArray });
             WriteTypeMarker(writer, Amf3TypeMarker.ByteArray);
 
             var encoded = input.ReadString();
@@ -397,10 +396,12 @@ namespace DotAmf.Encoder
         /// </summary>
         private void WriteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.Array));
+            context.References.Add(new AmfReference { AmfxType = AmfxContent.Array });
             WriteTypeMarker(writer, Amf3TypeMarker.Array);
 
             var length = Convert.ToInt32(input.GetAttribute(AmfxContent.ArrayLength));
+
+            input.Read();
 
             //The first bit is a flag with value 1.
             //The remaining 1 to 28 significant bits 
@@ -413,21 +414,10 @@ namespace DotAmf.Encoder
 
             if (length == 0) return;
 
-            input.MoveToContent();
-
-            while (input.Read())
+            for (var i = 0; i < length; i++)
             {
-                if (input.NodeType != XmlNodeType.Element)
-                    continue;
-
-                for (var i = 0; i < length; i++)
-                {
-                    var itemreader = input.ReadSubtree();
-                    itemreader.MoveToContent();
-                    WriteAmfValue(context, itemreader, writer);
-                    itemreader.Close();
-                    input.Read();
-                }
+                WriteAmfValue(context, input, writer);
+                input.Read();
             }
         }
 
@@ -436,95 +426,85 @@ namespace DotAmf.Encoder
         /// </summary>
         private void WriteObject(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.Object));
+            context.References.Add(new AmfReference { AmfxType = AmfxContent.Object });
             WriteTypeMarker(writer, Amf3TypeMarker.Object);
 
-            AmfTypeTraits traits = null;
+            AmfTypeTraits traits;
             var typeName = string.Empty;
 
             if (input.HasAttributes)
                 typeName = input.GetAttribute(AmfxContent.ObjectType);
 
             #region Write traits
-            while (input.Read())
+            input.Read();
+
+            //Send traits by value
+            if (!input.IsEmptyElement)
             {
-                if (input.NodeType != XmlNodeType.Element && input.Name != AmfxContent.Traits) continue;
+                traits = new AmfTypeTraits { TypeName = typeName };
+                context.TraitsReferences.Add(traits);
 
-                //Send traits by value
-                if (!input.IsEmptyElement)
-                {
-                    traits = new AmfTypeTraits { TypeName = typeName };
-                    context.TraitsReferences.Add(traits);
+                var traitsReader = input.ReadSubtree();
+                traitsReader.MoveToContent();
+                traitsReader.ReadStartElement();
 
-                    var traitsReader = input.ReadSubtree();
-                    traitsReader.MoveToContent();
-                    traitsReader.ReadStartElement();
+                var members = new List<string>();
 
-                    var members = new List<string>();
+                while (input.NodeType != XmlNodeType.EndElement)
+                    members.Add(traitsReader.ReadElementContentAsString());
 
-                    while (input.NodeType != XmlNodeType.EndElement)
-                        members.Add(traitsReader.ReadElementContentAsString());
+                traits.ClassMembers = members.ToArray();
+                traitsReader.Close();
 
-                    traits.ClassMembers = members.ToArray();
-                    traitsReader.Close();
+                //The first bit is a flag with value 1. 
+                //The second bit is a flag with value 1.
+                //The third bit is a flag with value 0. 
+                var flag = 0x3; //00000011
 
-                    //The first bit is a flag with value 1. 
-                    //The second bit is a flag with value 1.
-                    //The third bit is a flag with value 0. 
-                    var flag = 0x3; //00000011
+                if (traits.IsExternalizable) flag |= 0x4; //00000111
 
-                    if (traits.IsExternalizable) flag |= 0x4; //00000111
+                //The fourth bit is a flag specifying whether the type is dynamic.
+                //A value of 0 implies not dynamic, a value of 1 implies dynamic.
+                if (traits.IsDynamic) flag |= 0x8; //00001011
 
-                    //The fourth bit is a flag specifying whether the type is dynamic.
-                    //A value of 0 implies not dynamic, a value of 1 implies dynamic.
-                    if (traits.IsDynamic) flag |= 0x8; //00001011
+                //The remaining 1 to 25 significant bits are used to encode the number 
+                //of sealed traits member names that follow after the class name.
+                var count = traits.ClassMembers.Count();
+                flag |= count << 4;
 
-                    //The remaining 1 to 25 significant bits are used to encode the number 
-                    //of sealed traits member names that follow after the class name.
-                    var count = traits.ClassMembers.Count();
-                    flag |= count << 4;
+                WriteUInt29(writer, flag);
 
-                    WriteUInt29(writer, flag);
+                WriteUtf8(context, writer, traits.TypeName);
 
-                    WriteUtf8(context, writer, traits.TypeName);
+                //Write member names
+                foreach (var member in traits.ClassMembers)
+                    WriteUtf8(context, writer, member);
+            }
+            //Send traits by reference
+            else
+            {
+                var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId));
+                traits = context.TraitsReferences[index];
 
-                    //Write member names
-                    foreach (var member in traits.ClassMembers)
-                        WriteUtf8(context, writer, member);
-                }
-                //Send traits by reference
-                else
-                {
-                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId));
-                    traits = context.TraitsReferences[index];
+                var flag = index & UInt29Mask; //Truncate value to UInt29
 
-                    var flag = index & UInt29Mask; //Truncate value to UInt29
-
-                    //The first bit is a flag with value 1.
-                    //The second bit is a flag (representing whether a trait
-                    //reference follows) with value 0 to imply that this objects
-                    //traits are being sent by reference. The remaining 1 to 27 
-                    //significant bits are used to encode a trait reference index.
-                    flag = (flag << 2) | 0x1;
-                    WriteUInt29(writer, flag);
-                }
-
-                break;
+                //The first bit is a flag with value 1.
+                //The second bit is a flag (representing whether a trait
+                //reference follows) with value 0 to imply that this objects
+                //traits are being sent by reference. The remaining 1 to 27 
+                //significant bits are used to encode a trait reference index.
+                flag = (flag << 2) | 0x1;
+                WriteUInt29(writer, flag);
             }
 
-            if (traits == null) throw new SerializationException("Object traits not found.");
+            input.Read();
             #endregion
 
             #region Write members
-            while (input.Read())
+            for (var i = 0; i < traits.ClassMembers.Length; i++)
             {
-                if (input.NodeType != XmlNodeType.Element) continue;
-                var memberReader = input.ReadSubtree();
-                memberReader.MoveToContent();
-
-                WriteAmfValue(context, memberReader, writer);
-
-                memberReader.Close();
+                WriteAmfValue(context, input, writer);
+                input.Read();
             }
             #endregion
         }

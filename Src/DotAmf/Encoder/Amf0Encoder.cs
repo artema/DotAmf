@@ -1,4 +1,9 @@
-﻿using System;
+﻿// Copyright (c) 2012 Artem Abashev (http://abashev.me)
+// All rights reserved.
+// Licensed under the Microsoft Public License (Ms-PL)
+// http://opensource.org/licenses/ms-pl.html
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -277,7 +282,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private void WriteArray(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.Array));
+            context.References.Add(new AmfReference {AmfxType = AmfxContent.Array});
 
             var length = Convert.ToUInt32(input.GetAttribute(AmfxContent.ArrayLength));
             writer.Write(length);
@@ -306,7 +311,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private void WriteObject(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            context.References.Add(new AmfReference(AmfxContent.Object));
+            context.References.Add(new AmfReference { AmfxType = AmfxContent.Object });
 
             WriteTypeMarker(writer, Amf0TypeMarker.Object);
             

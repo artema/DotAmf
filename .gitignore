@@ -1,5 +1,7 @@
 _ReSharper*
 bin
+bin-debug
+bin-release
 obj
 App_Data
 TestResults
@@ -9,3 +11,4 @@ TestResults
 *.ReSharper
 *.InstallLog
 *.log
+*.DotSettings

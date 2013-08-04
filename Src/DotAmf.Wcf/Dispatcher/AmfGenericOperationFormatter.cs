@@ -1,4 +1,10 @@
-﻿using System;
+﻿// Copyright (c) 2012 Artem Abashev (http://abashev.me)
+// All rights reserved.
+// Licensed under the Microsoft Public License (Ms-PL)
+// http://opensource.org/licenses/ms-pl.html
+
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
@@ -42,13 +48,15 @@ namespace DotAmf.ServiceModel.Dispatcher
             else
                 input = amfrequest.AmfMessage.Data as object[];
 
-            if (input != null && input.Length == 0) return;
+            if (input != null && input.Length == 0 || input == null) return;
 
-            if (input == null || input.Length != parameters.Length)
+            var args = input[0] as IList;
+
+            if (args == null || args.Count != parameters.Length)
                 throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
 
             for (var i = 0; i < input.Length; i++)
-                parameters[i] = input[i];
+                parameters[i] = args[i];
         }
 
         /// <summary>

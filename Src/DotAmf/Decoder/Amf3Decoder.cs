@@ -1,4 +1,9 @@
-﻿using System;
+﻿// Copyright (c) 2012 Artem Abashev (http://abashev.me)
+// All rights reserved.
+// Licensed under the Microsoft Public License (Ms-PL)
+// http://opensource.org/licenses/ms-pl.html
+
+using System;
 using System.Collections.Generic;
 #if DEBUG
 using System.Diagnostics;
@@ -313,6 +318,8 @@ namespace DotAmf.Decoder
                 default:
                     throw new NotSupportedException("Type '" + type + "' is not supported.");
             }
+
+            if (output != null) output.Flush();
         }
 
         #region Primitive types
@@ -380,7 +387,8 @@ namespace DotAmf.Decoder
             var length = (reference >> 1);
             var value = ReadUtf8(reader, length);
 
-            context.StringReferences.Add(value);
+            if (value != string.Empty)
+                context.StringReferences.Add(value);
 
             if (output != null)
             {
@@ -412,11 +420,11 @@ namespace DotAmf.Decoder
                 return;
             }
 
+            context.References.Track();
+
             //Dates are represented as an Unix time stamp, but in milliseconds
             var milliseconds = reader.ReadDouble();
             var value = milliseconds.ToString();
-
-            context.References.Track();
 
             if (output != null)
             {
@@ -446,12 +454,12 @@ namespace DotAmf.Decoder
                 return;
             }
 
+            context.References.Track();
+
             //Get array length
             var length = (reference >> 1);
             var data = length == 0 ? new byte[] { } : reader.ReadBytes(length);
             var value = Convert.ToBase64String(data);
-
-            context.References.Track();
 
             if (output != null)
             {
@@ -481,11 +489,11 @@ namespace DotAmf.Decoder
                 return;
             }
 
+            context.References.Track();
+
             //Get XML string length
             var length = (reference >> 1);
             var value = ReadUtf8(reader, length);
-
-            context.References.Track();
 
             if (output != null)
             {
@@ -518,6 +526,8 @@ namespace DotAmf.Decoder
                 if (output != null) WriteReference(index, output);
                 return;
             }
+
+            context.References.Track();
 
             var length = reference >> 1;
             var key = ReadString(context, reader);
@@ -552,8 +562,6 @@ namespace DotAmf.Decoder
                 //Read array values
                 for (var i = 0; i < length; i++)
                     ReadAmfValue(context, reader, output);
-
-                context.References.Track();
             }
             //Regular array
             else
@@ -561,8 +569,6 @@ namespace DotAmf.Decoder
                 //Read array values
                 for (var i = 0; i < length; i++)
                     ReadAmfValue(context, reader, output);
-
-                context.References.Track();
             }
 
             if (output != null) output.WriteEndElement();
@@ -581,6 +587,8 @@ namespace DotAmf.Decoder
                 if (output != null) WriteReference(index, output);
                 return;
             }
+
+            context.References.Track();
 
             int traitsindex, traitsreference;
             AmfTypeTraits traits;
@@ -625,7 +633,7 @@ namespace DotAmf.Decoder
                 Debug.WriteLine(string.Format(Errors.Amf3Decoder_ReadObject_Debug_Members, traits.ClassMembers.Length));
             #endif
 
-            context.References.Track();
+            
 
             using (var ms = new MemoryStream())
             {

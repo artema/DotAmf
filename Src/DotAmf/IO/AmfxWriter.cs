@@ -1,4 +1,9 @@
-﻿using System;
+﻿// Copyright (c) 2012 Artem Abashev (http://abashev.me)
+// All rights reserved.
+// Licensed under the Microsoft Public License (Ms-PL)
+// http://opensource.org/licenses/ms-pl.html
+
+using System;
 using System.IO;
 using System.Text;
 using System.Xml;
@@ -21,7 +26,9 @@ namespace DotAmf.IO
             {
                 CheckCharacters = false,
                 Encoding = Encoding.UTF8,
-                CloseOutput = handleDispose
+                CloseOutput = handleDispose,
+                NewLineHandling = NewLineHandling.None,
+                OmitXmlDeclaration = true
             };
 
             return XmlWriter.Create(stream, settings);
