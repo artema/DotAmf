@@ -1,4 +1,5 @@
-﻿using DotAmf.Data;
+﻿using System;
+using DotAmf.Data;
 using DotAmf.Serialization;
 using NUnit.Framework;
 
@@ -41,6 +42,20 @@ namespace DotAmf
         {
             PerformTest<string[]>("StringReference.amfx", "StringReference.amf");
         } 
+        #endregion
+
+        #region Date
+        [Test(Description = "Date encoding.")]
+        public void TestDate()
+        {
+            PerformTest<DateTime>("Date.amfx", "Date.amf");
+        }
+
+        [Test(Description = "Date reference test.")]
+        public void TestDateReference()
+        {
+            PerformTest<DateTime[]>("DateReference.amfx", "DateReference.amf");
+        }
         #endregion
         #endregion
 

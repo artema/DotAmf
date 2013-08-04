@@ -73,6 +73,10 @@
     <EmbeddedResource Include="Samples\StringEmpty.amf" />
     <EmbeddedResource Include="Samples\StringReference.amfx" />
     <EmbeddedResource Include="Samples\StringReference.amf" />
+    <EmbeddedResource Include="Samples\Date.amf" />
+    <EmbeddedResource Include="Samples\Date.amfx" />
+    <EmbeddedResource Include="Samples\DateReference.amf" />
+    <EmbeddedResource Include="Samples\DateReference.amfx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
