@@ -4,6 +4,7 @@
 // http://opensource.org/licenses/ms-pl.html
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
@@ -49,13 +50,13 @@ namespace DotAmf.ServiceModel.Dispatcher
 
             if (input != null && input.Length == 0 || input == null) return;
 
-            input = input[0] as object[];
+            var args = input[0] as IList;
 
-            if (input == null || input.Length != parameters.Length)
+            if (args == null || args.Count != parameters.Length)
                 throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
 
             for (var i = 0; i < input.Length; i++)
-                parameters[i] = input[i];
+                parameters[i] = args[i];
         }
 
         /// <summary>
