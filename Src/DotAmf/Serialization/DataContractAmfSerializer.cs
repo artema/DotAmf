@@ -479,6 +479,7 @@ namespace DotAmf.Serialization
 
                 case AmfxContent.Reference:
                     value = ReadReference(reader, context);
+                    reader.Read();
                     break;
 
                 default:
@@ -543,15 +544,17 @@ namespace DotAmf.Serialization
         private static object ReadReference(XmlReader reader, SerializationContext context)
         {
             var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.ReferenceId));
-            return context.References[index];
+            return context.References[index+1].Reference;
         }
 
-        private static object[] ReadArray(XmlReader reader, SerializationContext context)
+        private static object ReadArray(XmlReader reader, SerializationContext context)
         {
             var length = Convert.ToInt32(reader.GetAttribute(AmfxContent.ArrayLength));
 
             var result = new object[length];
             context.References.Add(new AmfReference { Reference = result, AmfxType = AmfxContent.Array });
+
+            var referenceIndex = context.References.Count - 1;
 
             reader.Read();
 
@@ -573,7 +576,9 @@ namespace DotAmf.Serialization
                 for (var i = 0; i < result.Length; i++)
                     convertedArray.SetValue(result[i], i);
 
-                return (object[])convertedArray;
+                context.References[referenceIndex] = new AmfReference { Reference = convertedArray, AmfxType = AmfxContent.Array };
+
+                return convertedArray;
             }
 
             return result;
@@ -596,6 +601,8 @@ namespace DotAmf.Serialization
             var proxy = new object();
             context.References.Add(new AmfReference { Reference = proxy, AmfxType = AmfxContent.Object });
 
+            var referenceIndex = context.References.Count - 1;
+
             AmfTypeTraits traits;
             var typeName = string.Empty;
 
@@ -605,7 +612,7 @@ namespace DotAmf.Serialization
             #region Read traits
             reader.Read();
 
-            if (!reader.IsEmptyElement)
+            if (!reader.IsEmptyElement && reader.GetAttribute(AmfxContent.TraitsId) == null)
             {
                 traits = new AmfTypeTraits { TypeName = typeName };
                 context.TraitsReferences.Add(traits);
@@ -625,6 +632,8 @@ namespace DotAmf.Serialization
             {
                 var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.TraitsId));
                 traits = context.TraitsReferences[index];
+                reader.Read();
+                reader.Read();
             }
 
             if (traits == null) throw new SerializationException("Object traits not found.");
@@ -643,8 +652,6 @@ namespace DotAmf.Serialization
 
             #region Instantiate type
             object result;
-            var objectindex = context.References.IndexOf(proxy);
-            context.References.RemoveAt(objectindex);
 
             if (!string.IsNullOrEmpty(traits.TypeName))
             {
@@ -658,7 +665,7 @@ namespace DotAmf.Serialization
             else
                 result = properties;
 
-            context.References.Insert(objectindex, new AmfReference { Reference = result });
+            context.References[referenceIndex] = new AmfReference { Reference = result, AmfxType = AmfxContent.Object };
 
             return result;
             #endregion
@@ -867,7 +874,7 @@ namespace DotAmf.Serialization
             if (context.AmfVersion != AmfVersion.Amf3 || (index = context.References.IndexOf(value)) == -1)
             {
                 var timestamp = DataContractHelper.ConvertToTimestamp(value);
-                context.References.Add(new AmfReference { Reference = value });
+                context.References.Add(new AmfReference { Reference = value, AmfxType = AmfxContent.Date });
                 WriteElement(writer, AmfxContent.Date, timestamp.ToString());
             }
             //Write a date reference. Only in AMF+
@@ -888,7 +895,7 @@ namespace DotAmf.Serialization
             //Write an XML
             if (context.AmfVersion != AmfVersion.Amf3 || (index = context.References.IndexOf(value)) == -1)
             {
-                context.References.Add(new AmfReference { Reference = value });
+                context.References.Add(new AmfReference { Reference = value, AmfxType = AmfxContent.Xml });
 
                 string content;
 
@@ -920,7 +927,7 @@ namespace DotAmf.Serialization
             {
                 var data = Convert.ToBase64String(value);
 
-                context.References.Add(new AmfReference { Reference = value });
+                context.References.Add(new AmfReference { Reference = value, AmfxType = AmfxContent.ByteArray });
                 WriteElement(writer, AmfxContent.ByteArray, data);
             }
             //Write a byte array reference. Only in AMF+
@@ -941,7 +948,7 @@ namespace DotAmf.Serialization
             //Write an array
             if (index == -1)
             {
-                context.References.Add(new AmfReference { Reference = value });
+                context.References.Add(new AmfReference { Reference = value, AmfxType = AmfxContent.Array });
 
                 writer.WriteStartElement(AmfxContent.Array);
                 writer.WriteAttributeString(AmfxContent.ArrayLength, value.Length.ToString());
@@ -974,7 +981,7 @@ namespace DotAmf.Serialization
                 return;
             }
 
-            context.References.Add(new AmfReference { Reference = graph });
+            context.References.Add(new AmfReference { Reference = graph, AmfxType = AmfxContent.Object });
 
             Dictionary<string, object> properties;
 
