@@ -23,11 +23,25 @@ namespace DotAmf
         #endregion
 
         #region Test methods
+        #region String
         [Test(Description = "Simple string decoding.")]
         public void TestString1()
         {
             PerformTest<string>("String1.amf", "String1.amfx");
+        }
+
+        [Test(Description = "Empty string decoding.")]
+        public void TestStringEmpty()
+        {
+            PerformTest<string>("StringEmpty.amf", "StringEmpty.amfx");
+        }
+
+        [Test(Description = "String reference test.")]
+        public void TestStringReference()
+        {
+            PerformTest<string[]>("StringReference.amf", "StringReference.amfx");
         } 
+        #endregion
         #endregion
 
         #region Helper methods
