@@ -44,6 +44,32 @@ namespace DotAmf
         } 
         #endregion
 
+        #region Integer
+        [Test(Description = "Simple integer decoding: one byte value.")]
+        public void TestInteger1()
+        {
+            PerformTest<int>("Integer1.amf", "Integer1.amfx");
+        }
+
+        [Test(Description = "Simple integer decoding: two bytes value.")]
+        public void TestInteger2()
+        {
+            PerformTest<int>("Integer2.amf", "Integer2.amfx");
+        }
+
+        [Test(Description = "Simple integer decoding: three bytes value.")]
+        public void TestInteger3()
+        {
+            PerformTest<int>("Integer3.amf", "Integer3.amfx");
+        }
+
+        [Test(Description = "Simple integer decoding: four bytes value.")]
+        public void TestInteger4()
+        {
+            PerformTest<int>("Integer4.amf", "Integer4.amfx");
+        }
+        #endregion
+
         #region Date
         [Test(Description = "Date decoding.")]
         public void TestDate()

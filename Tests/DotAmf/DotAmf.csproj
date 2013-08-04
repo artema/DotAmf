@@ -77,6 +77,14 @@
     <EmbeddedResource Include="Samples\Date.amfx" />
     <EmbeddedResource Include="Samples\DateReference.amf" />
     <EmbeddedResource Include="Samples\DateReference.amfx" />
+    <EmbeddedResource Include="Samples\Integer1.amf" />
+    <EmbeddedResource Include="Samples\Integer1.amfx" />
+    <EmbeddedResource Include="Samples\Integer2.amf" />
+    <EmbeddedResource Include="Samples\Integer2.amfx" />
+    <EmbeddedResource Include="Samples\Integer3.amfx" />
+    <EmbeddedResource Include="Samples\Integer3.amf" />
+    <EmbeddedResource Include="Samples\Integer4.amf" />
+    <EmbeddedResource Include="Samples\Integer4.amfx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
