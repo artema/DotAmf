@@ -1,4 +1,4 @@
-NuGet packages: `DotAmf` and `DotAmf.Amf`
+NuGet packages: [https://www.nuget.org/packages/DotAmf/](DotAmf) and [https://www.nuget.org/packages/DotAmf.Wcf/](DotAmf.Wcf)
 
 # About #
 
