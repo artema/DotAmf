@@ -9,6 +9,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{3B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleService", "Examples\ExampleService\ExampleService.csproj", "{BF7F4EF2-8104-410E-8091-E977CFBB7465}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{BB6A307C-223B-406E-B75B-D478187B0DBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotAmf", "Tests\DotAmf\DotAmf.csproj", "{CE809E33-59C8-4C66-81AE-2F99207CEC9A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,11 +53,22 @@ Global
 		{BF7F4EF2-8104-410E-8091-E977CFBB7465}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{BF7F4EF2-8104-410E-8091-E977CFBB7465}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{BF7F4EF2-8104-410E-8091-E977CFBB7465}.Release|x86.ActiveCfg = Release|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BF7F4EF2-8104-410E-8091-E977CFBB7465} = {3B6BCA40-E0E2-41FF-AB07-BDA371D65A2E}
+		{CE809E33-59C8-4C66-81AE-2F99207CEC9A} = {BB6A307C-223B-406E-B75B-D478187B0DBB}
 	EndGlobalSection
 EndGlobal
