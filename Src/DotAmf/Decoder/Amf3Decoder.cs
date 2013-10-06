@@ -330,6 +330,9 @@ namespace DotAmf.Decoder
         {
             var value = ReadUint29(reader);
 
+            const int mask = 1 << 28; //Integer sign mask
+            value = -(value & mask) | value;
+
             if (output != null)
             {
                 output.WriteStartElement(AmfxContent.Integer);
