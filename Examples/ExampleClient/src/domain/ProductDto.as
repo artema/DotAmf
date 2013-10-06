@@ -5,7 +5,7 @@ package domain
 	{
 		public var id:int;
 		
-		public var identity:String = "lol";
+		public var identity:String;
 		
 		public function ProductDto(id:int = 0)
 		{

@@ -83,6 +83,20 @@ namespace DotAmf
             PerformTest<DateTime[]>("DateReference.amf", "DateReference.amfx");
         }
         #endregion
+
+        #region Array
+        [Test(Description = "Empty array decoding.")]
+        public void TestArray1()
+        {
+            PerformTest<object[]>("Array1.amf", "Array1.amfx");
+        }
+
+        [Test(Description = "Array reference test.")]
+        public void TestArrayReference()
+        {
+            PerformTest<object[]>("ArrayReference.amf", "ArrayReference.amfx");
+        }
+        #endregion
         #endregion
 
         #region Helper methods
