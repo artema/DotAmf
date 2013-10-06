@@ -68,6 +68,12 @@ namespace DotAmf
         {
             PerformTest<int>("Integer4.amfx", "Integer4.amf");
         }
+
+        [Test(Description = "Negative integer encoding: short value.")]
+        public void TestInteger5()
+        {
+            PerformTest<int>("Integer5.amfx", "Integer5.amf");
+        }
         #endregion
 
         #region Date

@@ -89,6 +89,8 @@
     <EmbeddedResource Include="Samples\Array1.amf" />
     <EmbeddedResource Include="Samples\ArrayReference.amfx" />
     <EmbeddedResource Include="Samples\ArrayReference.amf" />
+    <EmbeddedResource Include="Samples\Integer5.amfx" />
+    <EmbeddedResource Include="Samples\Integer5.amf" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
