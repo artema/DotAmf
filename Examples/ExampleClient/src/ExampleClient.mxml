@@ -141,12 +141,14 @@
 					new ProductDto(92)
 				];
 				
+				user1.products.push(user1.products[0]);
+				
 				var user2:User = new User(2);
 				user2.name = "User #2";
 				user2.is_active = true;
 				user2.products = user1.products;
 				
-				return [user1,user2];
+				return [user1,user1,user2];
 			}
 		]]>
 	</fx:Script>
