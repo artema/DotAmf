@@ -612,10 +612,10 @@ namespace DotAmf.Decoder
         private void ReadObject(AmfContext context, AmfStreamReader reader, XmlWriter output = null)
         {
             var reference = reader.PeekChar();
+            int index;
 
-            if ((reference & 0x1) == 0)
+            if ((reference & 0x1) == 0 && ReadReference(context, reader, out index, out reference))
             {
-                var index = reference >> 1;
                 if (output != null) WriteReference(index, output);
                 return;
             }
