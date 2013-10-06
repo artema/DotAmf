@@ -29,6 +29,25 @@ namespace DotAmf.Decoder
         }
         #endregion
 
+        #region Constants
+        /// <summary>
+        /// The minimum value for an integer that will avoid
+        /// promotion to an ActionScript's <c>Number</c> type.
+        /// </summary>
+        private const int MinInt29Value = -268435456;
+
+        /// <summary>
+        /// The maximum value for an integer that will avoid
+        /// promotion to an ActionScript's <c>Number</c> type.
+        /// </summary>
+        private const int MaxInt29Value = 268435455;
+
+        /// <summary>
+        /// The minimum value for a double that should be handled.
+        /// </summary>
+        private const double MinDoublePrecision = 0.00000001;
+        #endregion
+
         #region IAmfDecoder implementation
         override public void Decode(Stream stream, XmlWriter output)
         {
@@ -350,8 +369,18 @@ namespace DotAmf.Decoder
 
             if (output != null)
             {
-                output.WriteStartElement(AmfxContent.Double);
-                output.WriteValue(value);
+                if (value <= MinInt29Value || value >= MaxInt29Value && Math.Abs(value - Math.Round(value)) < MinDoublePrecision)
+                {
+                    var integer = Convert.ToInt32(value);
+                    output.WriteStartElement(AmfxContent.Integer);
+                    output.WriteValue(integer);
+                }
+                else
+                {
+                    output.WriteStartElement(AmfxContent.Double);
+                    output.WriteValue(value);
+                }
+
                 output.WriteEndElement();
             }
         }
