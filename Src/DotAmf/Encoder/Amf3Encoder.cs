@@ -401,8 +401,6 @@ namespace DotAmf.Encoder
 
             var length = Convert.ToInt32(input.GetAttribute(AmfxContent.ArrayLength));
 
-            input.Read();
-
             //The first bit is a flag with value 1.
             //The remaining 1 to 28 significant bits 
             //are used to encode the count of the dense 
@@ -413,6 +411,8 @@ namespace DotAmf.Encoder
             WriteUtf8(context, writer, string.Empty); //No associative values
 
             if (length == 0) return;
+            
+            input.Read();
 
             for (var i = 0; i < length; i++)
             {
