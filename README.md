@@ -1,14 +1,16 @@
-NuGet packages: [DotAmf](https://www.nuget.org/packages/DotAmf/) and [DotAmf.Wcf](https://www.nuget.org/packages/DotAmf.Wcf/).
+NuGet packages: [DotAmf](https://www.nuget.org/packages/DotAmf/) (serializer) and [DotAmf.Wcf](https://www.nuget.org/packages/DotAmf.Wcf/) (service layer).
 
 # About #
 
-.NET serializer and WCF bindings for AMF with full Flex compatibility.
+.NET serializer and WCF bindings for AMF with full Flex remoting support.
 
 > Action Message Format (AMF) is a binary format used to serialize object graphs such as ActionScript objects and XML, or send messages between an Adobe Flash client and a remote service, usually a Flash Media Server or third party alternatives. The Actionscript 3 language provides classes for encoding and decoding from the AMF format.
 >
 > [http://en.wikipedia.org/wiki/Action\_Message\_Format](http://en.wikipedia.org/wiki/Action_Message_Format)
 
-# Configuration #
+AMF has several advantages over existing serialization formats, including the ability to maintain objects graph, a small footprint when storing a set of identical objects (including strings) or references to the same object, and a wide range of natively supported types (such as `XmlDocument`, `DateTime` and `Dictionary`).
+
+# WCF Configuration #
 
 Consider the following service contracts:
 
@@ -140,3 +142,18 @@ To add an AMF support to a service, you only need to update your configuration:
     </configuration>
 
 See the `Examples` folder for a complete service and client implementations.
+
+# Serialization #
+
+You can use `DataContractAmfSerializer` to serialize and deserialize from binary AMF data outside of the WCF.
+
+    CustomType objectToWrite;
+
+    var knownTypes = new[] {
+        typeof(KnownType1),
+        typeof(KnownType2)
+    };
+    var serializer = new DataContractAmfSerializer(typeof(CustomType), knownTypes);
+
+    using (var stream = new MemoryStream())
+        serializer.WriteObject(stream, objectToWrite);
