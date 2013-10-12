@@ -86,7 +86,7 @@
 				var operation:AbstractOperation = myService.getOperation(name);
 				
 				if (args.length > 0)
-					operation.send(args);
+					operation.send.apply(null, args);
 				else
 					operation.send();
 			}
