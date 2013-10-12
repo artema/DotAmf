@@ -41,22 +41,20 @@ namespace DotAmf.ServiceModel.Dispatcher
             if (rpcMessage != null)
                 OperationContext.Current.IncomingMessageProperties[MessagingHeaders.RemotingMessage] = rpcMessage;
 
-            object[] input;
+            IList input;
 
             if (rpcMessage != null)
-                input = rpcMessage.Body as object[];
+                input = rpcMessage.Body as IList;
             else
-                input = amfrequest.AmfMessage.Data as object[];
+                input = amfrequest.AmfMessage.Data as IList;
 
-            if (input != null && input.Length == 0 || input == null) return;
+            if (input != null && input.Count == 0 || input == null) return;
 
-            var args = input[0] as IList;
-
-            if (args == null || args.Count != parameters.Length)
+            if (input.Count != parameters.Length)
                 throw new InvalidOperationException(Errors.AmfGenericOperationFormatter_DeserializeRequest_ArgumentCountMismatch);
 
-            for (var i = 0; i < input.Length; i++)
-                parameters[i] = args[i];
+            for (var i = 0; i < input.Count; i++)
+                parameters[i] = input[i];
         }
 
         /// <summary>
