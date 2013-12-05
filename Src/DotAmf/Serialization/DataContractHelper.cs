@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -347,7 +348,7 @@ namespace DotAmf.Serialization
             else
             {
                 foreach (var value in Enum.GetValues(type))
-                    result[value] = Convert.ChangeType(value, enumType);
+                    result[value] = Convert.ChangeType(value, enumType, CultureInfo.InvariantCulture);
             }
 
             return result;

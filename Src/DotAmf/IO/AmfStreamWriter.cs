@@ -57,8 +57,6 @@ namespace DotAmf.IO
 
         public override void Write(float value) { throw new NotSupportedException(); }
 
-        public override void Write(decimal value) { throw new NotSupportedException(); }
-
         public override void Write(double value) { Write(PrepareBytes(BitConverter.GetBytes(value))); }
 
         public override void Write(string value) { throw new NotSupportedException(); }

@@ -52,7 +52,7 @@ namespace DotAmf.IO
 
         public override float ReadSingle() { throw new NotSupportedException(); }
 
-        public override decimal ReadDecimal() { throw new NotSupportedException(); }
+        public decimal ReadDecimal() { throw new NotSupportedException(); }
 
         public override double ReadDouble() { return BitConverter.ToDouble(PrepareBytes(ReadBytes(8)), 0); }
 

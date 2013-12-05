@@ -281,8 +281,9 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteInteger(AmfStreamWriter writer, XmlReader input)
         {
-            var text = input.ReadString();
-            var value = Convert.ToInt64(text);
+            input.Read();
+            var value = Convert.ToInt32(input.Value);
+            input.Read();
 
             //Check if the value fits the Int29 span
             if (value >= MinInt29Value && value <= MaxInt29Value)
@@ -306,7 +307,9 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteDouble(AmfStreamWriter writer, XmlReader input)
         {
-            var value = Convert.ToDouble(input.ReadString());
+            input.Read();
+            var value = Convert.ToDouble(input.Value);
+            input.Read();
 
             WriteTypeMarker(writer, Amf3TypeMarker.Double);
             writer.Write(value);
@@ -333,7 +336,11 @@ namespace DotAmf.Encoder
                 value = string.Empty;
             }
             else
-                value = input.ReadString();
+            {
+                input.Read();
+                value = input.Value;
+                input.Read();
+            }
 
             WriteUtf8(context, writer, value);
         }
@@ -346,7 +353,7 @@ namespace DotAmf.Encoder
             context.References.Add(new AmfReference { AmfxType = AmfxContent.Date });
             WriteTypeMarker(writer, Amf3TypeMarker.Date);
 
-            var milliseconds = Convert.ToDouble(input.ReadString());
+            var milliseconds = input.ReadElementContentAsDouble();
 
             //The first bit is a flag with value 1.
             //The remaining bits are not used.
@@ -363,7 +370,10 @@ namespace DotAmf.Encoder
             context.References.Add(new AmfReference {AmfxType = AmfxContent.Xml});
             WriteTypeMarker(writer, Amf3TypeMarker.Xml);
 
-            var encoded = input.ReadString();
+            input.Read();
+            var encoded = input.Value;
+            input.Read();
+
             var decoded = Encoding.UTF8.GetBytes(encoded);
 
             WriteUtf8(writer, decoded);
@@ -377,7 +387,10 @@ namespace DotAmf.Encoder
             context.References.Add(new AmfReference { AmfxType = AmfxContent.ByteArray });
             WriteTypeMarker(writer, Amf3TypeMarker.ByteArray);
 
-            var encoded = input.ReadString();
+            input.Read();
+            var encoded = input.Value;
+            input.Read();
+
             var bytes = Convert.FromBase64String(encoded);
 
             //The first bit is a flag with value 1.
@@ -454,7 +467,6 @@ namespace DotAmf.Encoder
                     members.Add(traitsReader.ReadElementContentAsString());
 
                 traits.ClassMembers = members.ToArray();
-                traitsReader.Close();
 
                 //The first bit is a flag with value 1. 
                 //The second bit is a flag with value 1.
@@ -499,7 +511,7 @@ namespace DotAmf.Encoder
 
             input.Read();
             #endregion
-
+            
             #region Write members
             for (var i = 0; i < traits.ClassMembers.Length; i++)
             {

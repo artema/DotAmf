@@ -124,8 +124,6 @@ namespace DotAmf.Encoder
                 default:
                     throw new NotSupportedException("Unexpected AMFX type: " + reader.Name);
             }
-
-            reader.Close();
             #endregion
         }
 
@@ -163,7 +161,7 @@ namespace DotAmf.Encoder
         {
             WriteTypeMarker(writer, Amf0TypeMarker.Number);
 
-            var value = Convert.ToDouble(input.ReadString());
+            var value = input.ReadContentAsDouble();
             writer.Write(value);
         }
 
@@ -173,8 +171,8 @@ namespace DotAmf.Encoder
         private static void WriteString(AmfStreamWriter writer, XmlReader input)
         {
             var value = input.IsEmptyElement 
-                ? string.Empty 
-                : input.ReadString();
+                ? string.Empty
+                : input.ReadContentAsString();
 
             WriteString(writer, value);
         }
@@ -241,7 +239,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteDate(AmfStreamWriter writer, XmlReader input)
         {
-            var value = Convert.ToDouble(input.ReadString());
+            var value = input.ReadContentAsDouble();
             WriteDate(writer, value);
         }
 
@@ -260,7 +258,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteXml(AmfStreamWriter writer, XmlReader input)
         {
-            var value = input.ReadString();
+            var value = input.ReadContentAsString();
             var data = Encoding.UTF8.GetBytes(value);
             WriteXml(writer, data);
         }
@@ -301,7 +299,6 @@ namespace DotAmf.Encoder
                     var itemreader = input.ReadSubtree();
                     itemreader.MoveToContent();
                     WriteAmfValue(context, itemreader, writer);
-                    itemreader.Close();
                 }
             }
         }
@@ -339,7 +336,6 @@ namespace DotAmf.Encoder
                         members.Add(traitsReader.ReadElementContentAsString());
 
                     traits.ClassMembers = members.ToArray();
-                    traitsReader.Close();
                 }
 
                 break;
@@ -376,7 +372,6 @@ namespace DotAmf.Encoder
                 WriteUtf8(writer, memberName);
                 WriteAmfValue(context, memberReader, writer);
 
-                memberReader.Close();
                 i++;
             }
             #endregion

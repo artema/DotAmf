@@ -110,7 +110,7 @@ namespace DotAmf.Decoder
             var data = reader.ReadBytes((int)length);
 
             //All strings are encoded in UTF-8)
-            return Encoding.UTF8.GetString(data);
+            return Encoding.UTF8.GetString(data, 0, data.Length);
         }
         #endregion
 
@@ -390,7 +390,7 @@ namespace DotAmf.Decoder
                 //Read properties
                 using (var ms = new MemoryStream())
                 {
-                    var buffer = new XmlTextWriter(ms, Encoding.UTF8);
+                    var buffer = XmlWriter.Create(ms);
                     buffer.WriteStartElement("buffer");
                     buffer.WriteAttributeString("xmlns", AmfxContent.Namespace);
 
@@ -419,7 +419,7 @@ namespace DotAmf.Decoder
                     if (members.Count > 0)
                     {
                         ms.Position = 0;
-                        var bufferreader = new XmlTextReader(ms);
+                        var bufferreader = XmlReader.Create(ms);
                         bufferreader.Read();
                         bufferreader.ReadStartElement();
 

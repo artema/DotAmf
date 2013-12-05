@@ -26,8 +26,6 @@ namespace DotAmf.IO
             {
                 DtdProcessing = DtdProcessing.Ignore,
                 IgnoreProcessingInstructions = true,
-                ValidationFlags = XmlSchemaValidationFlags.None,
-                ValidationType = ValidationType.None,
                 CloseInput = handleDispose,
                 CheckCharacters = false,
                 IgnoreComments = true,

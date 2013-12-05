@@ -16,6 +16,7 @@ using DotAmf.Data;
 using DotAmf.Decoder;
 using DotAmf.Encoder;
 using DotAmf.IO;
+using System.Xml.Linq;
 
 namespace DotAmf.Serialization
 {
@@ -118,9 +119,17 @@ namespace DotAmf.Serialization
             using (var buffer = new MemoryStream())
             {
                 ReadObject(stream, AmfxWriter.Create(buffer));
-
+                
                 buffer.Position = 0;
-                return ReadObject(new XmlTextReader(buffer));
+
+                var settings = new XmlReaderSettings
+                {
+                    IgnoreWhitespace = true,
+                    IgnoreProcessingInstructions = true,
+                    ConformanceLevel = ConformanceLevel.Fragment
+                };
+                
+                return ReadObject(XmlReader.Create(buffer, settings));
             }
         }
 
@@ -485,42 +494,44 @@ namespace DotAmf.Serialization
                 default:
                     throw new NotSupportedException("Unexpected AMFX type: " + reader.Name);
             }
+            
             return value;
             #endregion
         }
 
         private static int ReadInteger(XmlReader reader)
         {
-            return Convert.ToInt32(reader.ReadString());
+            reader.Read();
+            var result = reader.ReadContentAsInt();
+            return result;
         }
 
         private static double ReadDouble(XmlReader reader)
         {
-            return Convert.ToDouble(reader.ReadString());
+            reader.Read();
+            var result = reader.ReadContentAsDouble();
+            return result;
         }
 
         private static string ReadString(XmlReader reader, SerializationContext context)
         {
-            if (reader.IsEmptyElement)
+            if (reader.AttributeCount > 0)
             {
-                if (reader.AttributeCount > 0)
-                {
-                    var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.StringId));
-                    return context.StringReferences[index];
-                }
-
-                return string.Empty;
+                var index = Convert.ToInt32(reader.GetAttribute(AmfxContent.StringId));
+                return context.StringReferences[index];
             }
 
-            var text = reader.ReadString();
+            reader.Read();
+            var text = reader.ReadContentAsString();
             context.StringReferences.Add(text);
-
+            
             return text;
         }
 
         private static DateTime ReadDate(XmlReader reader, SerializationContext context)
         {
-            var milliseconds = Convert.ToInt64(reader.ReadString());
+            reader.Read();
+            var milliseconds = reader.ReadContentAsDouble();
             var origin = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
             var offset = TimeSpan.FromMilliseconds(milliseconds);
             var result = origin + offset;
@@ -530,11 +541,11 @@ namespace DotAmf.Serialization
             return result;
         }
 
-        private static XmlDocument ReadXml(XmlReader reader, SerializationContext context)
+        private static XDocument ReadXml(XmlReader reader, SerializationContext context)
         {
-            var text = reader.ReadString();
-            var result = new XmlDocument();
-            result.LoadXml(text);
+            reader.Read();
+            var xml = reader.ReadContentAsString();
+            var result = XDocument.Parse(xml);
 
             context.References.Add(new AmfReference { Reference = result, AmfxType = AmfxContent.Xml });
 
@@ -586,7 +597,8 @@ namespace DotAmf.Serialization
 
         private static byte[] ReadByteArray(XmlReader reader, SerializationContext context)
         {
-            var encoded = reader.ReadString();
+            reader.Read();
+            var encoded = reader.ReadContentAsString();
             var bytes = Convert.FromBase64String(encoded);
 
             context.References.Add(new AmfReference { Reference = bytes, AmfxType = AmfxContent.ByteArray });
@@ -793,7 +805,7 @@ namespace DotAmf.Serialization
                     break;
 
                 case AmfxContent.Xml:
-                    WriteXml(writer, (XmlDocument)value, context);
+                    WriteXml(writer, (XDocument)value, context);
                     break;
 
                 case AmfxContent.Array:
@@ -888,7 +900,7 @@ namespace DotAmf.Serialization
         /// <summary>
         /// Write an XML.
         /// </summary>
-        private static void WriteXml(XmlWriter writer, XmlDocument value, SerializationContext context)
+        private static void WriteXml(XmlWriter writer, XDocument value, SerializationContext context)
         {
             int index;
 
@@ -902,7 +914,8 @@ namespace DotAmf.Serialization
                 using (var stream = new MemoryStream())
                 {
                     value.Save(stream);
-                    content = Encoding.UTF8.GetString(stream.ToArray());
+                    var bytes = stream.ToArray();
+                    content = Encoding.UTF8.GetString(bytes, 0, bytes.Length);
                 }
 
                 WriteElement(writer, AmfxContent.Xml, content);
@@ -1261,7 +1274,7 @@ namespace DotAmf.Serialization
             }
 
             //An XML document
-            if (type == typeof(XmlDocument))
+            if (type == typeof(XDocument))
                 return AmfxContent.Xml;
 
             //A guid

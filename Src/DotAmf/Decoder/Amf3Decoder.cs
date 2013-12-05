@@ -205,7 +205,7 @@ namespace DotAmf.Decoder
             var data = reader.ReadBytes(length);
 
             //All strings are encoded in UTF-8
-            return Encoding.UTF8.GetString(data);
+            return Encoding.UTF8.GetString(data, 0, data.Length);
         }
 
         /// <summary>
@@ -672,9 +672,14 @@ namespace DotAmf.Decoder
                 #region Reading object members
                 var members = new List<string>();
 
-                var buffer = new XmlTextWriter(ms, Encoding.UTF8);
-                buffer.WriteStartElement("buffer");
-                buffer.WriteAttributeString("xmlns", AmfxContent.Namespace);
+                var settings = new XmlWriterSettings
+                {
+                 
+                };
+
+                var buffer = XmlWriter.Create(ms, settings);
+                buffer.WriteStartDocument();
+                buffer.WriteStartElement("buffer", AmfxContent.Namespace);
 
                 #if DEBUG
                 var memberPosition = 0;
@@ -720,6 +725,7 @@ namespace DotAmf.Decoder
                 }
 
                 buffer.WriteEndElement();
+                buffer.WriteEndDocument();
                 buffer.Flush();
                 #endregion
 
@@ -768,7 +774,7 @@ namespace DotAmf.Decoder
                     if (members.Count > 0)
                     {
                         ms.Position = 0;
-                        var bufferreader = new XmlTextReader(ms);
+                        var bufferreader = XmlReader.Create(ms);
                         bufferreader.Read();
                         bufferreader.ReadStartElement();
 
