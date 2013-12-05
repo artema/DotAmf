@@ -5,6 +5,7 @@ using System.ServiceModel;
 using System.Text;
 using System.Threading;
 using System.Xml;
+using System.Xml.Linq;
 
 namespace ExampleService
 {
@@ -44,8 +45,7 @@ namespace ExampleService
         public Content SendContent(Content content)
         {
             content.Data = content.Data.Reverse().ToArray();
-            content.Xml = new XmlDocument();
-            content.Xml.LoadXml("<root><node /></root>");
+            content.Xml = XDocument.Parse("<root><node /></root>");
 
             return content;
         }

@@ -2,6 +2,7 @@
 using System.Runtime.Serialization;
 using System.ServiceModel;
 using System.Xml;
+using System.Xml.Linq;
 
 namespace ExampleService
 {
@@ -71,6 +72,6 @@ namespace ExampleService
         public byte[] Data { get; set; }
 
         [DataMember(Name = "xml")]
-        public XmlDocument Xml { get; set; }
+        public XDocument Xml { get; set; }
     }
 }
