@@ -11,6 +11,7 @@ using System.Text;
 using System.Xml;
 using DotAmf.Data;
 using DotAmf.IO;
+using System.Globalization;
 
 namespace DotAmf.Encoder
 {
@@ -244,7 +245,7 @@ namespace DotAmf.Encoder
         /// </summary>
         private static void WriteReference(AmfContext context, AmfStreamWriter writer, XmlReader input)
         {
-            var index = Convert.ToInt32(input.GetAttribute(AmfxContent.ReferenceId));
+            var index = Convert.ToInt32(input.GetAttribute(AmfxContent.ReferenceId), CultureInfo.InvariantCulture);
             var proxy = context.References[index];
 
             switch(proxy.AmfxType)
@@ -282,7 +283,7 @@ namespace DotAmf.Encoder
         private static void WriteInteger(AmfStreamWriter writer, XmlReader input)
         {
             input.Read();
-            var value = Convert.ToInt32(input.Value);
+            var value = Convert.ToInt32(input.Value, CultureInfo.InvariantCulture);
             input.Read();
 
             //Check if the value fits the Int29 span
@@ -298,7 +299,7 @@ namespace DotAmf.Encoder
             else
             {
                 WriteTypeMarker(writer, Amf3TypeMarker.Double);
-                writer.Write(Convert.ToDouble(value));
+                writer.Write(Convert.ToDouble(value, CultureInfo.InvariantCulture));
             }
         }
 
@@ -308,7 +309,7 @@ namespace DotAmf.Encoder
         private static void WriteDouble(AmfStreamWriter writer, XmlReader input)
         {
             input.Read();
-            var value = Convert.ToDouble(input.Value);
+            var value = Convert.ToDouble(input.Value, CultureInfo.InvariantCulture);
             input.Read();
 
             WriteTypeMarker(writer, Amf3TypeMarker.Double);
@@ -328,7 +329,7 @@ namespace DotAmf.Encoder
             {
                 if (input.AttributeCount > 0)
                 {
-                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.StringId));
+                    var index = Convert.ToInt32(input.GetAttribute(AmfxContent.StringId), CultureInfo.InvariantCulture);
                     WriteReference(writer, index);
                     return;
                 }
@@ -412,7 +413,7 @@ namespace DotAmf.Encoder
             context.References.Add(new AmfReference { AmfxType = AmfxContent.Array });
             WriteTypeMarker(writer, Amf3TypeMarker.Array);
 
-            var length = Convert.ToInt32(input.GetAttribute(AmfxContent.ArrayLength));
+            var length = Convert.ToInt32(input.GetAttribute(AmfxContent.ArrayLength), CultureInfo.InvariantCulture);
 
             //The first bit is a flag with value 1.
             //The remaining 1 to 28 significant bits 
@@ -495,7 +496,7 @@ namespace DotAmf.Encoder
             //Send traits by reference
             else
             {
-                var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId));
+                var index = Convert.ToInt32(input.GetAttribute(AmfxContent.TraitsId), CultureInfo.InvariantCulture);
                 traits = context.TraitsReferences[index];
 
                 var flag = index & UInt29Mask; //Truncate value to UInt29

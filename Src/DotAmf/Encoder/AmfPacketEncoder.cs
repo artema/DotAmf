@@ -38,7 +38,7 @@ namespace DotAmf.Encoder
         /// <summary>
         /// Encode an AMF packet from an AMFX format.
         /// </summary>
-        /// <exception cref="InvalidDataException">Error during encoding.</exception>
+        /// <exception cref="FormatException">Error during encoding.</exception>
         public void Encode(Stream stream, XmlReader input)
         {
             if (stream == null) throw new ArgumentNullException("stream");
@@ -128,7 +128,7 @@ namespace DotAmf.Encoder
             }
             catch (Exception e)
             {
-                throw new InvalidDataException(Errors.AmfPacketReader_DecodingError, e);
+                throw new FormatException(Errors.AmfPacketReader_DecodingError, e);
             }
         }
         #endregion
