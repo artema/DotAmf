@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>DotAmf</id>
+        <version>1.0.4</version>
+        <title>DotAmf</title>
+        <authors>Artem Abashev</authors>
+        <projectUrl>https://github.com/artema/DotAmf</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>Action Message Format (AMF) serializer.</description>
+    </metadata>
+    <files>
+        <file src="bin\Release\DotAmf.dll" target="lib\net40-client\DotAmf.dll" />
+        <file src="bin\Release\DotAmf.pdb" target="lib\net40-client\DotAmf.pdb" />
+    </files>
+</package>

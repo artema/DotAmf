@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>DotAmf.Wcf</id>
+        <version>1.0.0</version>
+        <title>AMF WCF</title>
+        <authors>Artem Abashev</authors>
+        <projectUrl>https://github.com/artema/DotAmf</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>Action Message Format (AMF) WCF binding.</description>
+        <dependencies>
+            <dependency id="DotAmf" version="1.0.0" />
+        </dependencies>
+    </metadata>
+    <files>
+        <file src="bin\Release\DotAmf.Wcf.dll" target="lib\net40\DotAmf.Wcf.dll" />
+        <file src="bin\Release\DotAmf.Wcf.pdb" target="lib\net40\DotAmf.Wcf.pdb" />
+    </files>
+</package>
